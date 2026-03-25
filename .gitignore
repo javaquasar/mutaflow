@@ -7,3 +7,5 @@ Thumbs.db
 .env.*
 coverage/
 .idea/
+*dist/.next/
+**/.next/

@@ -29,6 +29,15 @@ import { useFlowState } from "../packages/mutaflow/dist/react/useFlowState.js";
 import { useMutationEvents } from "../packages/mutaflow/dist/react/useMutationEvents.js";
 import { useResource } from "../packages/mutaflow/dist/react/useResource.js";
 import { MutationEventInspector, MutationTimelinePanel } from "../packages/devtools/dist/index.js";
+import {
+  createTestStore,
+  expectEvents,
+  expectOptimisticState,
+  expectReconciled,
+  expectResource,
+  expectRollback,
+  runFlowAndCollectEvents,
+} from "../packages/testkit/dist/index.js";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 globalThis.window = dom.window;
@@ -238,6 +247,94 @@ const tests = [
       }
       assert.equal(isNextSafeActionError(validationError), true);
       assert.equal(getNextSafeActionErrorKind(validationError), "validation");
+    },
+  },
+  {
+    name: "testkit creates a reusable store wrapper around resources and events",
+    run: async () => {
+      const testStore = createTestStore({
+        "todos:list": [{ id: "1", title: "Existing", pending: false }],
+      });
+      expectResource(testStore, "todos:list", [{ id: "1", title: "Existing", pending: false }]);
+      testStore.setResource("todos:list", [{ id: "2", title: "Updated", pending: true }]);
+      expectResource(testStore, "todos:list", [{ id: "2", title: "Updated", pending: true }]);
+      assert.deepEqual(testStore.snapshot(), {
+        "todos:list": [{ id: "2", title: "Updated", pending: true }],
+      });
+      testStore.events.emit({
+        type: "flow:start",
+        timestamp: Date.now(),
+        flowName: "testFlow",
+        flowId: "test-flow-1",
+        attempt: 1,
+        stage: "running",
+      });
+      expectEvents(testStore, ["flow:start"]);
+    },
+  },
+  {
+    name: "testkit collects success events and reconciled resources",
+    run: async () => {
+      const testStore = createTestStore({
+        "todos:list": [],
+      });
+      const flow = createFlow({
+        action: createServerActionAdapter(async (input) => ({ id: `todo:${input.title}`, title: input.title })),
+        optimistic: optimistic.insert({
+          target: "todos:list",
+          item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+        }),
+        reconcile: {
+          target: "todos:list",
+          onSuccess: (current, result) =>
+            (Array.isArray(current) ? current : []).map((todo) =>
+              todo.id === `temp:${result.title}`
+                ? { ...todo, id: result.id, pending: false }
+                : todo,
+            ),
+        },
+      });
+      const run = await runFlowAndCollectEvents(flow, { title: "Ship Testkit" }, testStore);
+      expectEvents(run, ["flow:start", "flow:optimistic-applied", "flow:reconciled", "flow:success"]);
+      expectReconciled(run, "todos:list", [{ id: "todo:Ship Testkit", title: "Ship Testkit", pending: false }]);
+    },
+  },
+  {
+    name: "testkit supports optimistic-state checks and rollback assertions",
+    run: async () => {
+      const testStore = createTestStore({ "todos:list": [] });
+      const deferred = createDeferred();
+      const flow = createFlow({
+        action: createServerActionAdapter(async (_input, context) => {
+          context.signal.addEventListener("abort", () => deferred.reject(createAbortError()), { once: true });
+          return deferred.promise;
+        }),
+        optimistic: optimistic.insert({
+          target: "todos:list",
+          item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+        }),
+      });
+
+      const pendingRun = runFlow(flow, { title: "Pending" }, {
+        store: testStore.store,
+        events: testStore.events,
+        flowId: "testkit-pending",
+      });
+      expectOptimisticState(testStore, "todos:list", [{ id: "temp:Pending", title: "Pending", pending: true }]);
+      deferred.resolve({ id: "todo:Pending", title: "Pending" });
+      await pendingRun;
+
+      const failingFlow = createFlow({
+        action: createServerActionAdapter(async function breakTodo() {
+          throw new Error("broken");
+        }),
+        optimistic: optimistic.insert({
+          target: "todos:list",
+          item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+        }),
+      });
+      const rollbackRun = await runFlowAndCollectEvents(failingFlow, { title: "Rollback" }, createTestStore({ "todos:list": [] }));
+      expectRollback(rollbackRun, "todos:list", []);
     },
   },
   {
@@ -631,4 +728,5 @@ if (failed > 0) {
 } else {
   console.log(`\nAll ${tests.length} tests passed.`);
 }
+
 

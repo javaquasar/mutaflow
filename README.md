@@ -2,7 +2,7 @@
 
 Mutaflow is a mutation orchestration library for Next.js Server Actions.
 
-The repository uses a small monorepo layout on purpose. Today it contains one publishable package and one prototype tooling package, but the structure is designed to support the future Mutaflow ecosystem without a painful repo migration later.
+The repository uses a small monorepo layout on purpose. Today it contains one publishable runtime package plus supporting ecosystem packages, and the structure is designed to support the future Mutaflow ecosystem without a painful repo migration later.
 
 ## Why `packages/`
 
@@ -21,6 +21,7 @@ Keeping publishable packages in `packages/` makes it easier to grow into a small
 
 - [packages/mutaflow](packages/mutaflow): the main publishable npm package
 - [packages/devtools](packages/devtools): prototype timeline and event inspector package
+- [packages/testkit](packages/testkit): testing helpers for optimistic flows
 - [examples/basic/README.md](examples/basic/README.md): small API direction example
 - [examples/next-app/README.md](examples/next-app/README.md): full Next App Router example with server actions and devtools
 - [tests](tests): node-based smoke tests for the current scaffold
@@ -51,6 +52,7 @@ Today the scaffold includes:
 - `mutaflow/next` tag and path builders
 - `mutaflow/next-safe-action` helper API
 - `@mutaflow/devtools` timeline and inspector prototype
+- `@mutaflow/testkit` flow testing helpers
 
 The core runtime can now:
 - register resource targets
@@ -77,7 +79,9 @@ The Next example shows:
 - `createServerActionAdapter(...)`
 - `@mutaflow/devtools` in a real page
 
-The basic example also shows the higher-level `next-safe-action` helper API.
+The basic example also shows:
+- the higher-level `next-safe-action` helper API
+- a small `@mutaflow/testkit` usage example for flow assertions
 
 ## Adapter Direction
 
@@ -120,6 +124,19 @@ const createTodoFlow = createNextSafeActionFlow({
 });
 ```
 
+## Testkit Direction
+
+`@mutaflow/testkit` is the first ecosystem package focused on reliability.
+
+It gives you:
+- `createTestStore(...)`
+- `runFlowAndCollectEvents(...)`
+- `expectEvents(...)`
+- `expectResource(...)`
+- `expectOptimisticState(...)`
+- `expectRollback(...)`
+- `expectReconciled(...)`
+
 ## Basic Direction
 
 The intended shape now looks like this:
@@ -160,6 +177,7 @@ Get-ChildItem packages -Recurse -Include *.js,*.js.map,*.d.ts,*.d.ts.map | Where
 Current packages intended for publication:
 - [packages/mutaflow](packages/mutaflow)
 - [packages/devtools](packages/devtools)
+- [packages/testkit](packages/testkit)
 
 Typical publish flow:
 
@@ -167,6 +185,7 @@ Typical publish flow:
 npm run build
 npm publish --workspace mutaflow
 npm publish --workspace @mutaflow/devtools
+npm publish --workspace @mutaflow/testkit
 ```
 
 GitHub Actions workflows live in [.github/workflows](.github/workflows).
@@ -176,6 +195,7 @@ GitHub Actions workflows live in [.github/workflows](.github/workflows).
 The likely package evolution looks like this:
 - `mutaflow`: the main runtime and public API
 - `@mutaflow/devtools`: lifecycle inspection and debugging
+- `@mutaflow/testkit`: testing helpers for optimistic flows
 - `@mutaflow/example-utils`: shared example helpers and demo fixtures
 - `@mutaflow/eslint-config`: linting presets and conventions for flow definitions
 

@@ -44,7 +44,29 @@ Good v1 scope:
 - mutation timeline
 - basic flow inspection hooks
 
-## 3. `@mutaflow/example-utils`
+## 3. `@mutaflow/testkit`
+
+Purpose:
+- testing helpers for flows
+- event and resource assertions
+- optimistic apply, rollback, and reconcile checks
+- reduce repeated boilerplate in mutation tests
+
+Why it deserves its own package:
+- teams need reliable mutation tests even if they do not ship devtools
+- testing code should stay out of the production runtime package
+- gives Mutaflow a stronger reliability story, not just a runtime story
+
+Good v1 scope:
+- `createTestStore(...)`
+- `runFlowAndCollectEvents(...)`
+- `expectEvents(...)`
+- `expectResource(...)`
+- `expectOptimisticState(...)`
+- `expectRollback(...)`
+- `expectReconciled(...)`
+
+## 4. `@mutaflow/example-utils`
 
 Purpose:
 - shared helpers for examples and demos
@@ -61,7 +83,7 @@ Good v1 scope:
 - reusable fake action adapters
 - small helper utilities used in examples
 
-## 4. `@mutaflow/eslint-config`
+## 5. `@mutaflow/eslint-config`
 
 Purpose:
 - opinionated lint rules and presets for Mutaflow projects
@@ -76,17 +98,9 @@ Possible future rules:
 - enforce naming conventions for flows
 - enforce explicit invalidation declarations where required
 
-## 5. Potential Future Packages
+## 6. Potential Future Packages
 
 These are possible, but they should only exist if the need becomes real.
-
-### `@mutaflow/testkit`
-
-Purpose:
-- testing helpers for flows
-- mock adapters
-- lifecycle assertions
-- optimistic rollback test helpers
 
 ### `@mutaflow/next-devtools`
 
@@ -108,8 +122,9 @@ Purpose:
 
 1. `mutaflow`
 2. `@mutaflow/devtools`
-3. `@mutaflow/testkit` or `@mutaflow/example-utils`
-4. `@mutaflow/eslint-config`
+3. `@mutaflow/testkit`
+4. `@mutaflow/example-utils`
+5. `@mutaflow/eslint-config`
 
 ## What Not To Do Early
 
@@ -122,7 +137,9 @@ A new package should only exist when it gives users a clearly separate reason to
 
 The current `packages/` layout is a bet on future clarity, not current complexity.
 
-Today there is one real package:
+Today there are three real packages:
 - [packages/mutaflow](packages/mutaflow)
+- [packages/devtools](packages/devtools)
+- [packages/testkit](packages/testkit)
 
-Later, if the ecosystem grows, new packages can be added alongside it without restructuring the entire repository.
+Later, if the ecosystem grows, new packages can be added alongside them without restructuring the entire repository.
