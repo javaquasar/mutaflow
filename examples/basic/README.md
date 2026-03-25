@@ -5,6 +5,7 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 ## Files
 
 - [src/createTodoFlow.ts](src/createTodoFlow.ts): flow definition using `createServerActionAdapter(...)`
+- [src/createTodoSafeActionFlow.ts](src/createTodoSafeActionFlow.ts): flow definition using `createNextSafeActionFlow(...)`
 - [src/store.ts](src/store.ts): optimistic resource registry and mutation event stores
 - [src/CreateTodoButton.tsx](src/CreateTodoButton.tsx): client-side trigger with `useFlow`, `useResource`, `useFlowState`, and `useMutationEvents`
 - [src/MutationDebugPanel.tsx](src/MutationDebugPanel.tsx): prototype devtools timeline and inspector
@@ -14,6 +15,7 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 
 - a `createFlow(...)` definition around a Next-oriented action adapter
 - `createServerActionAdapter(...)` for wrapping plain server actions
+- `createNextSafeActionFlow(...)` for a shorter `next-safe-action` setup
 - `createResourceStore(...)` with a real `todos:list` target
 - `createMutationEventStore(...)` as the base for future devtools
 - `optimistic.insert(...)` for list-first optimistic behavior
@@ -24,6 +26,24 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 - `useMutationEvents(...)` for observing the mutation timeline in React
 - `@mutaflow/devtools` timeline and event inspector components
 - `tags.todos.list()` and `tags.todos.byId(...)` invalidation metadata
+- `isNextSafeActionError(...)` and `getNextSafeActionErrorKind(...)` for error handling
+
+## next-safe-action helper API
+
+If you already use `next-safe-action`, the helper layer removes one wrapper level:
+
+```ts
+import { optimistic } from "mutaflow";
+import { createNextSafeActionFlow } from "mutaflow/next-safe-action";
+
+const createTodoFlow = createNextSafeActionFlow({
+  action: createTodoAction,
+  optimistic: optimistic.insert({
+    target: "todos:list",
+    item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+  }),
+});
+```
 
 This example is intentionally small and framework-light.
 It exists to document the desired API direction, not to be a full runnable app yet.

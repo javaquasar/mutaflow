@@ -17,6 +17,13 @@ import {
   paths,
   tags,
 } from "../packages/mutaflow/dist/next.js";
+import {
+  createNextSafeActionFlow,
+  getNextSafeActionErrorKind,
+  isNextSafeActionError,
+  nextSafeAction,
+  unwrapNextSafeActionResult,
+} from "../packages/mutaflow/dist/next-safe-action.js";
 import { useFlow } from "../packages/mutaflow/dist/react/useFlow.js";
 import { useFlowState } from "../packages/mutaflow/dist/react/useFlowState.js";
 import { useMutationEvents } from "../packages/mutaflow/dist/react/useMutationEvents.js";
@@ -168,8 +175,69 @@ const tests = [
           attempt: 1,
           signal: new AbortController().signal,
         }),
-        (error) => error instanceof NextSafeActionError,
+        (error) => error instanceof NextSafeActionError && error.kind === "validation",
       );
+    },
+  },
+  {
+    name: "next-safe-action helper creates adapters with readable names",
+    run: async () => {
+      const adapter = nextSafeAction(async () => ({ data: { id: "safe-helper" } }), {
+        name: "createSafePost",
+      });
+      assert.equal(adapter.name, "createSafePost");
+      const result = await adapter.run({}, {
+        flowId: "flow-safe-helper",
+        attempt: 1,
+        signal: new AbortController().signal,
+      });
+      assert.deepEqual(result, { id: "safe-helper" });
+    },
+  },
+  {
+    name: "next-safe-action helper flow wraps action without manual adapter boilerplate",
+    run: async () => {
+      const store = createResourceStore({ "todos:list": [] });
+      const flow = createNextSafeActionFlow({
+        action: async (input) => ({
+          data: { id: `safe:${input.title}`, title: input.title },
+        }),
+        adapter: { name: "createTodoSafe" },
+        optimistic: optimistic.insert({
+          target: "todos:list",
+          item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+        }),
+        reconcile: {
+          target: "todos:list",
+          onSuccess: (current, result) =>
+            (Array.isArray(current) ? current : []).map((todo) =>
+              todo.id === `temp:${result.title}`
+                ? { ...todo, id: result.id, pending: false }
+                : todo,
+            ),
+        },
+      });
+      const result = await runFlow(flow, { title: "Ship Safe Flow" }, { store, flowId: "safe-flow" });
+      assert.equal(result.data?.id, "safe:Ship Safe Flow");
+      assert.deepEqual(store.get("todos:list"), [
+        { id: "safe:Ship Safe Flow", title: "Ship Safe Flow", pending: false },
+      ]);
+    },
+  },
+  {
+    name: "next-safe-action helper exposes error guards and unwrap helpers",
+    run: async () => {
+      const data = unwrapNextSafeActionResult({ data: { id: "ok" } });
+      assert.deepEqual(data, { id: "ok" });
+
+      let validationError;
+      try {
+        unwrapNextSafeActionResult({ validationErrors: { title: ["Required"] } });
+      } catch (error) {
+        validationError = error;
+      }
+      assert.equal(isNextSafeActionError(validationError), true);
+      assert.equal(getNextSafeActionErrorKind(validationError), "validation");
     },
   },
   {
@@ -563,3 +631,4 @@ if (failed > 0) {
 } else {
   console.log(`\nAll ${tests.length} tests passed.`);
 }
+

@@ -32,3 +32,5 @@ Then open `http://localhost:3000`.
 ## Notes
 
 This example uses a tiny in-memory server-side data module in [lib/data.ts](lib/data.ts) so the focus stays on Mutaflow and not on database setup.
+
+If your app uses `next-safe-action`, the corresponding Mutaflow helper API lives at `mutaflow/next-safe-action`.

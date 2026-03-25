@@ -51,11 +51,40 @@ function CreatePostButton() {
 }
 ```
 
+## next-safe-action helper API
+
+If you use `next-safe-action`, Mutaflow now exposes a dedicated helper layer:
+
+```ts
+import { optimistic } from "mutaflow";
+import { createNextSafeActionFlow } from "mutaflow/next-safe-action";
+
+const createPostFlow = createNextSafeActionFlow({
+  action: createPostAction,
+  optimistic: optimistic.insert({
+    target: "posts:list",
+    item: (input) => ({
+      id: `temp:${input.title}`,
+      title: input.title,
+      pending: true,
+    }),
+  }),
+});
+```
+
+You can also use:
+- `nextSafeAction(action)`
+- `createNextSafeActionAdapter(action)`
+- `isNextSafeActionError(error)`
+- `getNextSafeActionErrorKind(error)`
+- `unwrapNextSafeActionResult(result)`
+
 ## Exports
 
 - `mutaflow`
 - `mutaflow/react`
 - `mutaflow/next`
+- `mutaflow/next-safe-action`
 
 ## Status
 

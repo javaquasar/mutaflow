@@ -90,9 +90,18 @@ export type NextSafeActionResult<TResult> = {
   serverError?: unknown;
 };
 
+export type NextSafeActionErrorKind =
+  | "server"
+  | "validation"
+  | "missing-data";
+
 export type NextSafeActionLike<TInput, TResult> = (
   input: TInput,
 ) => Promise<NextSafeActionResult<TResult>>;
+
+export type NextSafeActionAdapterOptions = {
+  name?: string;
+};
 
 export type OptimisticConfig<TInput, TResult> = {
   target?: string;

@@ -1,42 +1,52 @@
-import type { InvalidateEntry } from "../types.js";
-
 export {
   createNextSafeActionAdapter,
   createServerActionAdapter,
+  isNextSafeActionError,
   NextSafeActionError,
 } from "./adapters.js";
 
-type BuilderKind = "tag" | "path";
-
-type BuilderNode = {
-  [key: string]: BuilderNode;
-  (...parts: Array<string | number>): InvalidateEntry;
+type BuilderResult = {
+  kind: "tag" | "path";
+  value: string;
 };
 
-function createBuilder(kind: BuilderKind, segments: string[] = []): BuilderNode {
-  const callable = ((...parts: Array<string | number>) => {
-    const allSegments = [...segments, ...parts.map(String)];
+type BuilderProxy = ((...args: unknown[]) => BuilderResult) & {
+  kind: "tag" | "path";
+  value: string;
+} & Record<string, unknown>;
 
-    if (kind === "tag") {
-      return {
-        kind,
-        value: allSegments.join("."),
-      } satisfies InvalidateEntry;
-    }
+function createBuilder(kind: "tag" | "path", segments: string[] = []): BuilderProxy {
+  const buildValue = (nextSegments: string[]): BuilderResult => ({
+    kind,
+    value: kind === "tag" ? nextSegments.join(".") : `/${nextSegments.join("/")}`,
+  });
 
-    return {
-      kind,
-      value: `/${allSegments.join("/")}`,
-    } satisfies InvalidateEntry;
-  }) as BuilderNode;
+  const callable = (...args: unknown[]) => buildValue([
+    ...segments,
+    ...args.map((arg) => String(arg)),
+  ]);
 
-  return new Proxy(callable, {
-    get(_, property) {
-      if (typeof property !== "string") {
-        return undefined;
+  return new Proxy(callable as BuilderProxy, {
+    get(_target, property: string | symbol) {
+      if (property === "value") {
+        return buildValue(segments).value;
       }
 
-      return createBuilder(kind, [...segments, property]);
+      if (property === "kind") {
+        return kind;
+      }
+
+      if (property === Symbol.toPrimitive) {
+        return () => buildValue(segments).value;
+      }
+
+      return createBuilder(kind, [...segments, String(property)]);
+    },
+    apply(_target, _thisArg, args: unknown[]) {
+      return buildValue([
+        ...segments,
+        ...args.map((arg) => String(arg)),
+      ]);
     },
   });
 }

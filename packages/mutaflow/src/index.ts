@@ -19,6 +19,8 @@ export type {
   MutationEventListener,
   MutationEventStore,
   MutationEventType,
+  NextSafeActionAdapterOptions,
+  NextSafeActionErrorKind,
   NextSafeActionLike,
   NextSafeActionResult,
   OptimisticConfig,

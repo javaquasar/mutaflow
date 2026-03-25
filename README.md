@@ -45,8 +45,11 @@ Today the scaffold includes:
 - `useMutationEvents`
 - `createServerActionAdapter`
 - `createNextSafeActionAdapter`
+- `createNextSafeActionFlow`
+- `nextSafeAction`
 - `optimistic.insert/update/remove/replace`
 - `mutaflow/next` tag and path builders
+- `mutaflow/next-safe-action` helper API
 - `@mutaflow/devtools` timeline and inspector prototype
 
 The core runtime can now:
@@ -74,6 +77,8 @@ The Next example shows:
 - `createServerActionAdapter(...)`
 - `@mutaflow/devtools` in a real page
 
+The basic example also shows the higher-level `next-safe-action` helper API.
+
 ## Adapter Direction
 
 Mutaflow treats the mutation workflow as the main concern and the action source as an adapter.
@@ -81,11 +86,39 @@ Mutaflow treats the mutation workflow as the main concern and the action source 
 Today the first helpers are:
 - `createServerActionAdapter(action)`
 - `createNextSafeActionAdapter(action)`
+- `createNextSafeActionFlow({ action, ... })`
+- `nextSafeAction(action)`
 
 That means the same `createFlow(...)` API can sit on top of:
 - plain async server actions
 - Next.js-oriented server action functions
 - `next-safe-action` style clients returning `{ data, validationErrors, serverError }`
+
+## next-safe-action Helper API
+
+If you already use `next-safe-action`, the dedicated helper layer removes the extra `createFlow({ action: createNextSafeActionAdapter(...) })` wrapper:
+
+```ts
+import { optimistic } from "mutaflow";
+import {
+  createNextSafeActionFlow,
+  getNextSafeActionErrorKind,
+  isNextSafeActionError,
+} from "mutaflow/next-safe-action";
+
+const createTodoFlow = createNextSafeActionFlow({
+  action: createTodoAction,
+  optimistic: optimistic.insert({
+    target: "todos:list",
+    item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+  }),
+  onError: ({ error }) => {
+    if (isNextSafeActionError(error) && getNextSafeActionErrorKind(error) === "validation") {
+      console.warn(error.details.validationErrors);
+    }
+  },
+});
+```
 
 ## Basic Direction
 

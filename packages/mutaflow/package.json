@@ -29,6 +29,10 @@
     "./next": {
       "types": "./dist/next.d.ts",
       "import": "./dist/next.js"
+    },
+    "./next-safe-action": {
+      "types": "./dist/next-safe-action.d.ts",
+      "import": "./dist/next-safe-action.js"
     }
   },
   "files": [
