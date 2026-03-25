@@ -1,0 +1,34 @@
+import { createFlow, optimistic } from "mutaflow";
+import { tags } from "mutaflow/next";
+
+export type CreateTodoInput = {
+  title: string;
+};
+
+export type Todo = {
+  id: string;
+  title: string;
+  pending?: boolean;
+};
+
+export async function createTodo(input: CreateTodoInput): Promise<{ id: string }> {
+  return { id: `todo-${input.title.toLowerCase().replace(/\s+/g, "-")}` };
+}
+
+export const createTodoFlow = createFlow({
+  action: createTodo,
+  optimistic: optimistic.insert<CreateTodoInput, Todo>({
+    target: "todos:list",
+    position: "start",
+    item: (input) => ({
+      id: `temp:${input.title}`,
+      title: input.title,
+      pending: true,
+    }),
+  }),
+  invalidate: ({ result }) => [
+    tags.todos.list(),
+    tags.todos.byId(result.id),
+  ],
+  redirect: ({ result }) => `/todos/${result.id}`,
+});

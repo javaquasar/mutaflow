@@ -20,6 +20,7 @@ Keeping the publishable package in `packages/mutaflow` makes it easier to grow i
 ## Repository Layout
 
 - [packages/mutaflow](packages/mutaflow): the main publishable npm package
+- [tests](tests): node-based smoke tests for the current scaffold
 - [examples/basic/README.md](examples/basic/README.md): usage direction example
 - [POSITIONING.md](POSITIONING.md): positioning and market framing
 - [MVP_API.md](MVP_API.md): MVP API direction
@@ -47,6 +48,7 @@ The next big step is connecting these declarations to a real optimistic target s
 npm install
 npm run typecheck
 npm run build
+npm run test
 ```
 
 ## Publishing Direction

@@ -17,6 +17,7 @@
   "scripts": {
     "build": "npm run build --workspace mutaflow",
     "typecheck": "npm run typecheck --workspace mutaflow",
+    "test": "npm run build && node scripts/run-tests.mjs",
     "clean": "powershell -Command Remove-Item -Recurse -Force packages/mutaflow/dist -ErrorAction SilentlyContinue"
   },
   "devDependencies": {
