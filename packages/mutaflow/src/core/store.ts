@@ -1,4 +1,4 @@
-import type { ResourceListener, ResourceStore } from "../types";
+import type { ResourceListener, ResourceStore } from "../types.js";
 
 export function createResourceStore(initialState: Record<string, unknown> = {}): ResourceStore {
   const values = new Map<string, unknown>(Object.entries(initialState));

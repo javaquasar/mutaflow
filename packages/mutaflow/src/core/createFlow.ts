@@ -1,4 +1,4 @@
-import type { FlowConfig, FlowDefinition } from "../types";
+import type { FlowConfig, FlowDefinition } from "../types.js";
 
 export function createFlow<TInput, TResult>(
   config: FlowConfig<TInput, TResult>,

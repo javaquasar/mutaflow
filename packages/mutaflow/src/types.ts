@@ -32,6 +32,36 @@ export type ResourceStore = {
   snapshot: () => Record<string, unknown>;
 };
 
+export type MutationEventType =
+  | "flow:start"
+  | "flow:optimistic-applied"
+  | "flow:success"
+  | "flow:error"
+  | "flow:rolled-back"
+  | "flow:reconciled";
+
+export type MutationEvent = {
+  type: MutationEventType;
+  timestamp: number;
+  flowName: string;
+  stage: FlowStage;
+  target?: string;
+  input?: unknown;
+  result?: unknown;
+  error?: unknown;
+  invalidations?: InvalidateEntry[];
+  redirectTo?: string;
+};
+
+export type MutationEventListener = () => void;
+
+export type MutationEventStore = {
+  emit: (event: MutationEvent) => void;
+  getEvents: () => MutationEvent[];
+  clear: () => void;
+  subscribe: (listener: MutationEventListener) => () => void;
+};
+
 export type OptimisticConfig<TInput, TResult> = {
   target?: string;
   apply?: (current: unknown, input: TInput) => unknown;
@@ -61,6 +91,7 @@ export type FlowDefinition<TInput, TResult> = {
 
 export type FlowRunOptions = {
   store?: ResourceStore;
+  events?: MutationEventStore;
 };
 
 export type FlowRunResult<TResult> = {
@@ -73,6 +104,7 @@ export type FlowRunResult<TResult> = {
 
 export type UseFlowOptions = {
   store?: ResourceStore;
+  events?: MutationEventStore;
 };
 
 export type UseFlowResult<TInput, TResult> = {

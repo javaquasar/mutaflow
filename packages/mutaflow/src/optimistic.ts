@@ -1,4 +1,4 @@
-import type { OptimisticConfig } from "./types";
+import type { OptimisticConfig } from "./types.js";
 
 type InsertConfig<TInput, TItem, TResult> = {
   target: string;

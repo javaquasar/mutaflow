@@ -1,7 +1,8 @@
-export { createFlow } from "./core/createFlow";
-export { runFlow } from "./core/runFlow";
-export { createResourceStore } from "./core/store";
-export { optimistic } from "./optimistic";
+export { createFlow } from "./core/createFlow.js";
+export { createMutationEventStore } from "./core/events.js";
+export { runFlow } from "./core/runFlow.js";
+export { createResourceStore } from "./core/store.js";
+export { optimistic } from "./optimistic.js";
 export type {
   ErrorContext,
   FlowConfig,
@@ -10,6 +11,10 @@ export type {
   FlowRunResult,
   FlowStage,
   InvalidateEntry,
+  MutationEvent,
+  MutationEventListener,
+  MutationEventStore,
+  MutationEventType,
   OptimisticConfig,
   ReconcileConfig,
   ResourceListener,
@@ -17,4 +22,4 @@ export type {
   SuccessContext,
   UseFlowOptions,
   UseFlowResult,
-} from "./types";
+} from "./types.js";

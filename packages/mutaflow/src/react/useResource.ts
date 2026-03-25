@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-import type { ResourceStore } from "../types";
+import type { ResourceStore } from "../types.js";
 
 export function useResource<TValue>(
   target: string,

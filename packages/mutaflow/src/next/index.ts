@@ -1,4 +1,4 @@
-import type { InvalidateEntry } from "../types";
+import type { InvalidateEntry } from "../types.js";
 
 type BuilderKind = "tag" | "path";
 

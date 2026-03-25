@@ -1,12 +1,12 @@
 import { useState } from "react";
 
-import { runFlow } from "../core/runFlow";
+import { runFlow } from "../core/runFlow.js";
 import type {
   FlowDefinition,
   FlowStage,
   UseFlowOptions,
   UseFlowResult,
-} from "../types";
+} from "../types.js";
 
 export function useFlow<TInput, TResult>(
   flow: FlowDefinition<TInput, TResult>,

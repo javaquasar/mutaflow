@@ -37,9 +37,12 @@ The current codebase focuses on the core package only.
 Today the scaffold includes:
 - `createFlow`
 - `createResourceStore`
+- `createMutationEventStore`
 - `runFlow`
 - `useFlow`
 - `useResource`
+- `useFlowState`
+- `useMutationEvents`
 - `optimistic.insert/update/remove/replace`
 - `mutaflow/next` tag and path builders
 
@@ -49,6 +52,8 @@ The core runtime can now:
 - apply optimistic patches
 - roll back on failure
 - reconcile on success
+- emit mutation lifecycle events
+- support a future devtools layer without rewriting the runtime
 
 ## Working Locally
 
@@ -67,6 +72,8 @@ The intended shape now looks like this:
 const store = createResourceStore({
   "todos:list": [],
 });
+
+const events = createMutationEventStore();
 
 const flow = createFlow({
   action: createTodo,
@@ -88,7 +95,9 @@ const flow = createFlow({
 });
 
 const todos = useResource("todos:list", store) ?? [];
-const mutation = useFlow(flow, { store });
+const mutation = useFlow(flow, { store, events });
+const mutationEvents = useMutationEvents(events);
+const flowState = useFlowState(events, "createTodo");
 ```
 
 ## Publishing Direction

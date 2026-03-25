@@ -1,1 +1,1 @@
-export { tags, paths } from "./next/index";
+export { tags, paths } from "./next/index.js";
