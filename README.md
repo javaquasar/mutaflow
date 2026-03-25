@@ -54,7 +54,7 @@ Today the scaffold includes:
 - `createInvalidationRegistry(...)`, `defineTags(...)`, `definePaths(...)`
 - `consistency.immediate(...)`, `consistency.staleWhileRevalidate(...)`, `consistency.manual(...)`
 - `mutaflow/next-safe-action` helper API
-- `@mutaflow/devtools` timeline and inspector prototype
+- `@mutaflow/devtools` summary panel, grouped timeline, filters, and inspector
 - `@mutaflow/testkit` flow testing helpers
 
 The core runtime can now:
@@ -268,12 +268,13 @@ GitHub Actions workflows live in [.github/workflows](.github/workflows).
 
 The likely package evolution looks like this:
 - `mutaflow`: the main runtime and public API
-- `@mutaflow/devtools`: lifecycle inspection and debugging
+- `@mutaflow/devtools`: lifecycle inspection, grouping, filters, and debugging
 - `@mutaflow/testkit`: testing helpers for optimistic flows
 - `@mutaflow/example-utils`: shared example helpers and demo fixtures
 - `@mutaflow/eslint-config`: linting presets and conventions for flow definitions
 
 More detail lives in [ECOSYSTEM_ROADMAP.md](ECOSYSTEM_ROADMAP.md).
+
 
 
 

@@ -32,7 +32,12 @@ import { useFlow } from "../packages/mutaflow/dist/react/useFlow.js";
 import { useFlowState } from "../packages/mutaflow/dist/react/useFlowState.js";
 import { useMutationEvents } from "../packages/mutaflow/dist/react/useMutationEvents.js";
 import { useResource } from "../packages/mutaflow/dist/react/useResource.js";
-import { MutationEventInspector, MutationTimelinePanel } from "../packages/devtools/dist/index.js";
+import {
+  MutationDevtoolsPanel,
+  MutationEventInspector,
+  MutationSummaryPanel,
+  MutationTimelinePanel,
+} from "../packages/devtools/dist/index.js";
 import {
   createTestStore,
   expectEvents,
@@ -803,33 +808,91 @@ const tests = [
     },
   },
   {
-    name: "devtools timeline panel and inspector render mutation events",
+    name: "devtools render summary cards, grouped flows, filters, meta, consistency, and inspector details",
     run: async () => {
       const events = createMutationEventStore();
-      const sampleEvent = {
+      const sampleStart = {
+        type: "flow:start",
+        timestamp: Date.now() - 20,
+        flowName: "createTodo",
+        flowId: "flow-1",
+        attempt: 1,
+        stage: "running",
+        meta: { feature: "todos", source: "test" },
+      };
+      const sampleRetry = {
+        type: "flow:retrying",
+        timestamp: Date.now() - 10,
+        flowName: "createTodo",
+        flowId: "flow-1",
+        attempt: 1,
+        stage: "running",
+        meta: { feature: "todos", source: "test" },
+      };
+      const sampleSuccess = {
         type: "flow:success",
         timestamp: Date.now(),
         flowName: "createTodo",
         flowId: "flow-1",
-        attempt: 1,
+        attempt: 2,
         stage: "success",
         target: "todos:list",
-        result: { id: "todo:1" },
+        meta: { feature: "todos", source: "test" },
+        consistency: {
+          strategy: "immediate",
+          readYourOwnWrites: true,
+          invalidations: [
+            { kind: "tag", value: "todos.list" },
+            { kind: "path", value: "/todos/todo-1" },
+          ],
+        },
+        invalidations: [
+          { kind: "tag", value: "todos.list" },
+          { kind: "path", value: "/todos/todo-1" },
+        ],
+        result: { id: "todo-1" },
       };
-      events.emit(sampleEvent);
+      const unrelated = {
+        type: "flow:error",
+        timestamp: Date.now() - 5,
+        flowName: "deleteTodo",
+        flowId: "flow-2",
+        attempt: 1,
+        stage: "error",
+      };
+      events.emit(sampleStart);
+      events.emit(sampleRetry);
+      events.emit(sampleSuccess);
+      events.emit(unrelated);
       function Component() {
         return React.createElement(
           "section",
           null,
-          React.createElement(MutationTimelinePanel, { store: events, flowName: "createTodo" }),
-          React.createElement(MutationEventInspector, { event: sampleEvent }),
+          React.createElement(MutationSummaryPanel, { events: events.getEvents() }),
+          React.createElement(MutationTimelinePanel, {
+            store: events,
+            flowName: "createTodo",
+            eventType: "all",
+            groupByFlowId: true,
+          }),
+          React.createElement(MutationDevtoolsPanel, {
+            store: events,
+            initialFlowName: "createTodo",
+            initialEventType: "flow:success",
+          }),
+          React.createElement(MutationEventInspector, { event: sampleSuccess }),
         );
       }
       const rendered = await renderWithRoot(Component);
       try {
-        assert.equal(rendered.container.textContent?.includes("Mutation Timeline"), true);
-        assert.equal(rendered.container.textContent?.includes("flow:success"), true);
+        assert.equal(rendered.container.textContent?.includes("Mutation Summary"), true);
+        assert.equal(rendered.container.textContent?.includes("Retries"), true);
+        assert.equal(rendered.container.textContent?.includes("Devtools Filters"), true);
         assert.equal(rendered.container.textContent?.includes("createTodo"), true);
+        assert.equal(rendered.container.textContent?.includes("flow-1"), true);
+        assert.equal(rendered.container.textContent?.includes("consistency: immediate"), true);
+        assert.equal(rendered.container.textContent?.includes("invalidations: tag:todos.list, path:/todos/todo-1"), true);
+        assert.equal(rendered.container.textContent?.includes('"feature":"todos"'), true);
         assert.equal(rendered.container.textContent?.includes('"flowId": "flow-1"'), true);
       } finally {
         await rendered.cleanup();
@@ -855,6 +918,7 @@ if (failed > 0) {
 } else {
   console.log(`\nAll ${tests.length} tests passed.`);
 }
+
 
 
 

@@ -9,7 +9,7 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 - [src/testCreateTodoSafeFlow.ts](src/testCreateTodoSafeFlow.ts): small `@mutaflow/testkit` example for flow assertions
 - [src/store.ts](src/store.ts): optimistic resource registry and mutation event stores
 - [src/CreateTodoButton.tsx](src/CreateTodoButton.tsx): client-side trigger with `useFlow`, `useResource`, `useFlowState`, and `useMutationEvents`
-- [src/MutationDebugPanel.tsx](src/MutationDebugPanel.tsx): prototype devtools timeline and inspector
+- [src/MutationDebugPanel.tsx](src/MutationDebugPanel.tsx): richer devtools panel with grouping, filters, summary, and inspector
 - [src/App.tsx](src/App.tsx): tiny app shell
 
 ## What It Demonstrates
@@ -28,9 +28,8 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 - `useFlow(...)` for pending state, retries, cancellation, and mutation execution
 - `useFlowState(...)` for reading the latest flow stage from the event stream
 - `useMutationEvents(...)` for observing the mutation timeline in React
-- `@mutaflow/devtools` timeline and event inspector components
+- `@mutaflow/devtools` summary, grouped timeline, filters, and event inspector
 - reusable invalidation registries via `createInvalidationRegistry(...)`, `defineTags(...)`, and `definePaths(...)`
-- `isNextSafeActionError(...)` and `getNextSafeActionErrorKind(...)` for error handling
 
 ## next-safe-action helper API
 
@@ -59,6 +58,3 @@ import { createTestStore, expectEvents, expectReconciled, runFlowAndCollectEvent
 
 This example is intentionally small and framework-light.
 It exists to document the desired API direction, not to be a full runnable app yet.
-
-
-
