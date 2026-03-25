@@ -1,0 +1,9 @@
+node_modules/
+packages/*/dist/
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+.env
+.env.*
+coverage/
+.idea/

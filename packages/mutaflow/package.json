@@ -1,0 +1,47 @@
+{
+  "name": "mutaflow",
+  "version": "0.1.0",
+  "description": "Mutation orchestration for Next.js Server Actions",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/javaquasar/mutaflow.git",
+    "directory": "packages/mutaflow"
+  },
+  "homepage": "https://github.com/javaquasar/mutaflow#readme",
+  "bugs": {
+    "url": "https://github.com/javaquasar/mutaflow/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=19.0.0"
+  }
+}
