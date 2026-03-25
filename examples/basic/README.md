@@ -28,7 +28,7 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 - `useFlowState(...)` for reading the latest flow stage from the event stream
 - `useMutationEvents(...)` for observing the mutation timeline in React
 - `@mutaflow/devtools` timeline and event inspector components
-- `tags.todos.list()` and `tags.todos.byId(...)` invalidation metadata
+- reusable invalidation registries via `createInvalidationRegistry(...)`, `defineTags(...)`, and `definePaths(...)`
 - `isNextSafeActionError(...)` and `getNextSafeActionErrorKind(...)` for error handling
 
 ## next-safe-action helper API
@@ -58,4 +58,5 @@ import { createTestStore, expectEvents, expectReconciled, runFlowAndCollectEvent
 
 This example is intentionally small and framework-light.
 It exists to document the desired API direction, not to be a full runnable app yet.
+
 

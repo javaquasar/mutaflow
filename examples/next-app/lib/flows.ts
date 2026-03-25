@@ -1,10 +1,29 @@
 "use client";
 
 import { createFlow, optimistic } from "mutaflow";
-import { createServerActionAdapter, tags } from "mutaflow/next";
+import {
+  createInvalidationRegistry,
+  createServerActionAdapter,
+  definePaths,
+  defineTags,
+} from "mutaflow/next";
 
 import { createTodoAction, type CreateTodoInput } from "../app/actions";
 import type { ClientTodo } from "./client-store";
+
+const todoInvalidation = createInvalidationRegistry({
+  tags: defineTags((tags) => ({
+    todos: {
+      list: () => tags.todos.list(),
+      byId: (id: string) => tags.todos.byId(id),
+    },
+  })),
+  paths: definePaths((paths) => ({
+    todos: {
+      byId: (id: string) => paths.todos.byId(id),
+    },
+  })),
+});
 
 export const createTodoFlow = createFlow({
   action: createServerActionAdapter(createTodoAction),
@@ -27,8 +46,9 @@ export const createTodoFlow = createFlow({
       ),
   },
   invalidate: ({ result }) => [
-    tags.todos.list(),
-    tags.todos.byId(result.id),
+    todoInvalidation.tags.todos.list(),
+    todoInvalidation.tags.todos.byId(result.id),
+    todoInvalidation.paths.todos.byId(result.id),
   ],
   redirect: ({ result }) => `/todos/${result.id}`,
 });

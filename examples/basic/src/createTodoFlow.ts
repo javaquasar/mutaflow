@@ -1,5 +1,10 @@
 import { createFlow, optimistic } from "mutaflow";
-import { createServerActionAdapter, tags } from "mutaflow/next";
+import {
+  createInvalidationRegistry,
+  createServerActionAdapter,
+  definePaths,
+  defineTags,
+} from "mutaflow/next";
 
 export type CreateTodoInput = {
   title: string;
@@ -14,6 +19,21 @@ export type Todo = {
 export async function createTodo(input: CreateTodoInput): Promise<{ id: string; title: string }> {
   return { id: `todo-${input.title.toLowerCase().replace(/\s+/g, "-")}`, title: input.title };
 }
+
+export const todoInvalidation = createInvalidationRegistry({
+  tags: defineTags((tags) => ({
+    todos: {
+      list: () => tags.todos.list(),
+      byId: (id: string) => tags.todos.byId(id),
+    },
+  })),
+  paths: definePaths((paths) => ({
+    todos: {
+      list: () => paths.todos.list(),
+      byId: (id: string) => paths.todos.byId(id),
+    },
+  })),
+});
 
 export const createTodoFlow = createFlow({
   action: createServerActionAdapter(createTodo),
@@ -51,8 +71,9 @@ export const createTodoFlow = createFlow({
       ),
   },
   invalidate: ({ result }) => [
-    tags.todos.list(),
-    tags.todos.byId(result.id),
+    todoInvalidation.tags.todos.list(),
+    todoInvalidation.tags.todos.byId(result.id),
+    todoInvalidation.paths.todos.byId(result.id),
   ],
   afterSuccess: ({ result, meta }) => {
     console.debug("[mutaflow] afterSuccess", meta, result);

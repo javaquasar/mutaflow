@@ -11,8 +11,11 @@ import { runFlow } from "../packages/mutaflow/dist/core/runFlow.js";
 import { createResourceStore } from "../packages/mutaflow/dist/core/store.js";
 import { optimistic } from "../packages/mutaflow/dist/optimistic.js";
 import {
+  createInvalidationRegistry,
   createNextSafeActionAdapter,
   createServerActionAdapter,
+  definePaths,
+  defineTags,
   NextSafeActionError,
   paths,
   tags,
@@ -580,6 +583,27 @@ const tests = [
     },
   },
   {
+    name: "typed invalidation registry builds reusable tag and path helpers",
+    run: async () => {
+      const registry = createInvalidationRegistry({
+        tags: defineTags((tags) => ({
+          todos: {
+            list: () => tags.todos.list(),
+            byId: (id) => tags.todos.byId(id),
+          },
+        })),
+        paths: definePaths((paths) => ({
+          todos: {
+            byId: (id) => paths.todos.byId(id),
+          },
+        })),
+      });
+      assert.deepEqual(registry.tags.todos.list(), { kind: "tag", value: "todos.list" });
+      assert.deepEqual(registry.tags.todos.byId("42"), { kind: "tag", value: "todos.byId.42" });
+      assert.deepEqual(registry.paths.todos.byId("42"), { kind: "path", value: "/todos/byId/42" });
+    },
+  },
+  {
     name: "tags builder creates dot-separated invalidation entries",
     run: async () => {
       assert.deepEqual(tags.posts.list(), { kind: "tag", value: "posts.list" });
@@ -808,6 +832,7 @@ if (failed > 0) {
 } else {
   console.log(`\nAll ${tests.length} tests passed.`);
 }
+
 
 
 

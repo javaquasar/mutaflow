@@ -15,6 +15,8 @@ type BuilderProxy = ((...args: unknown[]) => BuilderResult) & {
   value: string;
 } & Record<string, unknown>;
 
+export type InvalidationRegistryShape = Record<string, unknown>;
+
 function createBuilder(kind: "tag" | "path", segments: string[] = []): BuilderProxy {
   const buildValue = (nextSegments: string[]): BuilderResult => ({
     kind,
@@ -53,3 +55,21 @@ function createBuilder(kind: "tag" | "path", segments: string[] = []): BuilderPr
 
 export const tags = createBuilder("tag");
 export const paths = createBuilder("path");
+
+export function defineTags<T extends InvalidationRegistryShape>(
+  factory: (builder: typeof tags) => T,
+): T {
+  return factory(tags);
+}
+
+export function definePaths<T extends InvalidationRegistryShape>(
+  factory: (builder: typeof paths) => T,
+): T {
+  return factory(paths);
+}
+
+export function createInvalidationRegistry<T extends InvalidationRegistryShape>(
+  registry: T,
+): T {
+  return registry;
+}

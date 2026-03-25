@@ -1,4 +1,10 @@
-export { tags, paths } from "./next/index.js";
+export {
+  createInvalidationRegistry,
+  definePaths,
+  defineTags,
+  paths,
+  tags,
+} from "./next/index.js";
 export {
   createNextSafeActionAdapter,
   createServerActionAdapter,

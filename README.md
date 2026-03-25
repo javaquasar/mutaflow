@@ -51,6 +51,7 @@ Today the scaffold includes:
 - `middleware`, `beforeRun`, `afterSuccess`, `afterError`, `onSettled`
 - `optimistic.insert/update/remove/replace`
 - `mutaflow/next` tag and path builders
+- `createInvalidationRegistry(...)`, `defineTags(...)`, `definePaths(...)`
 - `mutaflow/next-safe-action` helper API
 - `@mutaflow/devtools` timeline and inspector prototype
 - `@mutaflow/testkit` flow testing helpers
@@ -153,6 +154,34 @@ const flow = createFlow({
 });
 ```
 
+## Typed Invalidation Registry
+
+`mutaflow/next` can now define reusable typed invalidation registries on top of `tags` and `paths`:
+
+```ts
+import {
+  createInvalidationRegistry,
+  definePaths,
+  defineTags,
+} from "mutaflow/next";
+
+const todoInvalidation = createInvalidationRegistry({
+  tags: defineTags((tags) => ({
+    todos: {
+      list: () => tags.todos.list(),
+      byId: (id: string) => tags.todos.byId(id),
+    },
+  })),
+  paths: definePaths((paths) => ({
+    todos: {
+      byId: (id: string) => paths.todos.byId(id),
+    },
+  })),
+});
+```
+
+That lets flows reuse named invalidations instead of rebuilding string helpers inline.
+
 ## Testkit Direction
 
 `@mutaflow/testkit` is the first ecosystem package focused on reliability.
@@ -229,4 +258,5 @@ The likely package evolution looks like this:
 - `@mutaflow/eslint-config`: linting presets and conventions for flow definitions
 
 More detail lives in [ECOSYSTEM_ROADMAP.md](ECOSYSTEM_ROADMAP.md).
+
 

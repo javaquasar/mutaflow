@@ -1,10 +1,14 @@
 import { optimistic } from "mutaflow";
 import {
+  createInvalidationRegistry,
+  definePaths,
+  defineTags,
+} from "mutaflow/next";
+import {
   createNextSafeActionFlow,
   getNextSafeActionErrorKind,
   isNextSafeActionError,
 } from "mutaflow/next-safe-action";
-import { tags } from "mutaflow/next";
 
 import type { CreateTodoInput, Todo } from "./createTodoFlow";
 
@@ -24,6 +28,20 @@ async function createTodoSafeAction(input: CreateTodoInput) {
     },
   };
 }
+
+const safeTodoInvalidation = createInvalidationRegistry({
+  tags: defineTags((tags) => ({
+    todos: {
+      list: () => tags.todos.list(),
+      byId: (id: string) => tags.todos.byId(id),
+    },
+  })),
+  paths: definePaths((paths) => ({
+    todos: {
+      byId: (id: string) => paths.todos.byId(id),
+    },
+  })),
+});
 
 export const createTodoSafeFlow = createNextSafeActionFlow({
   action: createTodoSafeAction,
@@ -59,8 +77,9 @@ export const createTodoSafeFlow = createNextSafeActionFlow({
       ),
   },
   invalidate: ({ result }) => [
-    tags.todos.list(),
-    tags.todos.byId(result.id),
+    safeTodoInvalidation.tags.todos.list(),
+    safeTodoInvalidation.tags.todos.byId(result.id),
+    safeTodoInvalidation.paths.todos.byId(result.id),
   ],
   afterSuccess: ({ meta, result }) => {
     console.debug("[mutaflow] safe action success", meta, result);

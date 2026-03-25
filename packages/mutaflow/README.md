@@ -79,6 +79,32 @@ You can also use:
 - `getNextSafeActionErrorKind(error)`
 - `unwrapNextSafeActionResult(result)`
 
+## Typed Invalidation Registry
+
+`mutaflow/next` can now define reusable invalidation registries:
+
+```ts
+import {
+  createInvalidationRegistry,
+  definePaths,
+  defineTags,
+} from "mutaflow/next";
+
+const postInvalidation = createInvalidationRegistry({
+  tags: defineTags((tags) => ({
+    posts: {
+      list: () => tags.posts.list(),
+      byId: (id: string) => tags.posts.byId(id),
+    },
+  })),
+  paths: definePaths((paths) => ({
+    posts: {
+      byId: (id: string) => paths.posts.byId(id),
+    },
+  })),
+});
+```
+
 ## Lifecycle Hooks and Middleware
 
 Flows can now carry shared `meta` and hook into the full mutation lifecycle:
@@ -114,4 +140,5 @@ const createPostFlow = createFlow({
 ## Status
 
 This is an early v0.1 scaffold, not a production-ready release yet.
+
 
