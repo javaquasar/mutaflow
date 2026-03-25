@@ -36,11 +36,19 @@ The current codebase focuses on the core package only.
 
 Today the scaffold includes:
 - `createFlow`
+- `createResourceStore`
+- `runFlow`
 - `useFlow`
+- `useResource`
 - `optimistic.insert/update/remove/replace`
 - `mutaflow/next` tag and path builders
 
-The next big step is connecting these declarations to a real optimistic target store.
+The core runtime can now:
+- register resource targets
+- read and write shared resource state
+- apply optimistic patches
+- roll back on failure
+- reconcile on success
 
 ## Working Locally
 
@@ -49,6 +57,38 @@ npm install
 npm run typecheck
 npm run build
 npm run test
+```
+
+## Basic Direction
+
+The intended shape now looks like this:
+
+```ts
+const store = createResourceStore({
+  "todos:list": [],
+});
+
+const flow = createFlow({
+  action: createTodo,
+  optimistic: optimistic.insert({
+    target: "todos:list",
+    item: (input) => ({
+      id: `temp:${input.title}`,
+      title: input.title,
+      pending: true,
+    }),
+  }),
+  reconcile: {
+    target: "todos:list",
+    onSuccess: (current, result) =>
+      (Array.isArray(current) ? current : []).map((todo) =>
+        todo.id.startsWith("temp:") ? { ...todo, id: result.id, pending: false } : todo,
+      ),
+  },
+});
+
+const todos = useResource("todos:list", store) ?? [];
+const mutation = useFlow(flow, { store });
 ```
 
 ## Publishing Direction
