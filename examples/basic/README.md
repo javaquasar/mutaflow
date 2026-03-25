@@ -5,13 +5,16 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 ## Files
 
 - [src/createTodoFlow.ts](src/createTodoFlow.ts): flow definition
+- [src/store.ts](src/store.ts): optimistic resource registry setup
 - [src/CreateTodoButton.tsx](src/CreateTodoButton.tsx): client-side trigger with `useFlow`
 - [src/App.tsx](src/App.tsx): tiny app shell
 
 ## What It Demonstrates
 
 - a `createFlow(...)` definition around a server-like action
+- `createResourceStore(...)` with a real `todos:list` target
 - `optimistic.insert(...)` for list-first optimistic behavior
+- `reconcile.onSuccess(...)` replacing the optimistic resource after success
 - `tags.todos.list()` and `tags.todos.byId(...)` invalidation metadata
 - `useFlow(...)` for pending state and mutation execution
 
@@ -29,11 +32,13 @@ export const createTodoFlow = createFlow({
       pending: true,
     }),
   }),
-  invalidate: ({ result }) => [
-    tags.todos.list(),
-    tags.todos.byId(result.id),
-  ],
-  redirect: ({ result }) => `/todos/${result.id}`,
+  reconcile: {
+    target: "todos:list",
+    onSuccess: (current, result) =>
+      (Array.isArray(current) ? current : []).map((todo) =>
+        todo.id.startsWith("temp:") ? { ...todo, id: result.id, pending: false } : todo,
+      ),
+  },
 });
 ```
 

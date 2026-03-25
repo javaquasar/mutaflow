@@ -20,6 +20,18 @@ export type ErrorContext<TInput> = {
   error: unknown;
 };
 
+export type ResourceListener = () => void;
+
+export type ResourceStore = {
+  register: <TValue>(target: string, initialValue: TValue) => void;
+  has: (target: string) => boolean;
+  get: <TValue>(target: string) => TValue | undefined;
+  set: <TValue>(target: string, value: TValue) => TValue;
+  update: <TValue>(target: string, updater: (current: TValue | undefined) => TValue) => TValue;
+  subscribe: (target: string, listener: ResourceListener) => () => void;
+  snapshot: () => Record<string, unknown>;
+};
+
 export type OptimisticConfig<TInput, TResult> = {
   target?: string;
   apply?: (current: unknown, input: TInput) => unknown;
@@ -47,11 +59,20 @@ export type FlowDefinition<TInput, TResult> = {
   config: FlowConfig<TInput, TResult>;
 };
 
+export type FlowRunOptions = {
+  store?: ResourceStore;
+};
+
 export type FlowRunResult<TResult> = {
   data?: TResult;
   error?: unknown;
   invalidations?: InvalidateEntry[];
   redirectTo?: string;
+  optimisticTarget?: string;
+};
+
+export type UseFlowOptions = {
+  store?: ResourceStore;
 };
 
 export type UseFlowResult<TInput, TResult> = {

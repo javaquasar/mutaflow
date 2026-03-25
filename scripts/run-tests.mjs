@@ -1,10 +1,49 @@
 import assert from "node:assert/strict";
 
 import { createFlow } from "../packages/mutaflow/dist/core/createFlow.js";
+import { runFlow } from "../packages/mutaflow/dist/core/runFlow.js";
+import { createResourceStore } from "../packages/mutaflow/dist/core/store.js";
 import { optimistic } from "../packages/mutaflow/dist/optimistic.js";
 import { paths, tags } from "../packages/mutaflow/dist/next/index.js";
 
 const tests = [
+  {
+    name: "resource store supports register, get, set, update, subscribe, and snapshot",
+    run: async () => {
+      const store = createResourceStore();
+      let notifications = 0;
+
+      store.register("todos:list", []);
+      const unsubscribe = store.subscribe("todos:list", () => {
+        notifications += 1;
+      });
+
+      assert.equal(store.has("todos:list"), true);
+      assert.deepEqual(store.get("todos:list"), []);
+
+      store.set("todos:list", [{ id: "1", title: "First" }]);
+      store.update("todos:list", (current) => [
+        ...(Array.isArray(current) ? current : []),
+        { id: "2", title: "Second" },
+      ]);
+
+      assert.deepEqual(store.get("todos:list"), [
+        { id: "1", title: "First" },
+        { id: "2", title: "Second" },
+      ]);
+      assert.deepEqual(store.snapshot(), {
+        "todos:list": [
+          { id: "1", title: "First" },
+          { id: "2", title: "Second" },
+        ],
+      });
+      assert.equal(notifications, 2);
+
+      unsubscribe();
+      store.set("todos:list", []);
+      assert.equal(notifications, 2);
+    },
+  },
   {
     name: "createFlow keeps action config and marks the definition",
     run: async () => {
@@ -33,19 +72,77 @@ const tests = [
     },
   },
   {
-    name: "optimistic.insert adds an item at the start",
+    name: "runFlow applies optimistic patch and reconciles on success",
     run: async () => {
-      const insert = optimistic.insert({
-        target: "todos:list",
-        position: "start",
-        item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+      const store = createResourceStore({
+        "todos:list": [{ id: "1", title: "Existing", pending: false }],
       });
 
-      const result = insert.apply?.([{ id: "1", title: "Existing" }], { title: "Ship Mutaflow" });
+      const flow = createFlow({
+        action: async (input) => ({ id: `todo:${input.title}` }),
+        optimistic: optimistic.insert({
+          target: "todos:list",
+          position: "start",
+          item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+        }),
+        reconcile: {
+          target: "todos:list",
+          onSuccess: (current, result) =>
+            (Array.isArray(current) ? current : []).map((todo) =>
+              todo.id === "temp:Ship Mutaflow"
+                ? { ...todo, id: result.id, pending: false }
+                : todo,
+            ),
+        },
+      });
 
-      assert.deepEqual(result, [
+      const pendingPromise = runFlow(flow, { title: "Ship Mutaflow" }, { store });
+
+      assert.deepEqual(store.get("todos:list"), [
         { id: "temp:Ship Mutaflow", title: "Ship Mutaflow", pending: true },
-        { id: "1", title: "Existing" },
+        { id: "1", title: "Existing", pending: false },
+      ]);
+
+      const result = await pendingPromise;
+
+      assert.equal(result.data?.id, "todo:Ship Mutaflow");
+      assert.equal(result.optimisticTarget, "todos:list");
+      assert.deepEqual(store.get("todos:list"), [
+        { id: "todo:Ship Mutaflow", title: "Ship Mutaflow", pending: false },
+        { id: "1", title: "Existing", pending: false },
+      ]);
+    },
+  },
+  {
+    name: "runFlow rolls back optimistic state on error",
+    run: async () => {
+      const store = createResourceStore({
+        "todos:list": [{ id: "1", title: "Existing", pending: false }],
+      });
+
+      const flow = createFlow({
+        action: async () => {
+          throw new Error("boom");
+        },
+        optimistic: optimistic.insert({
+          target: "todos:list",
+          position: "start",
+          item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+        }),
+      });
+
+      const pendingPromise = runFlow(flow, { title: "Broken" }, { store });
+
+      assert.deepEqual(store.get("todos:list"), [
+        { id: "temp:Broken", title: "Broken", pending: true },
+        { id: "1", title: "Existing", pending: false },
+      ]);
+
+      const result = await pendingPromise;
+
+      assert.equal(result.error instanceof Error, true);
+      assert.deepEqual(store.get("todos:list"), [
+        { id: "1", title: "Existing", pending: false },
       ]);
     },
   },

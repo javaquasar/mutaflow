@@ -26,6 +26,15 @@ export const createTodoFlow = createFlow({
       pending: true,
     }),
   }),
+  reconcile: {
+    target: "todos:list",
+    onSuccess: (current, result) =>
+      (Array.isArray(current) ? current : []).map((todo) =>
+        typeof todo === "object" && todo !== null && "id" in todo && String(todo.id).startsWith("temp:")
+          ? { ...todo, id: result.id, pending: false }
+          : todo,
+      ),
+  },
   invalidate: ({ result }) => [
     tags.todos.list(),
     tags.todos.byId(result.id),

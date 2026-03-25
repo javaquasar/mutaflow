@@ -1,53 +1,22 @@
 import { useState } from "react";
 
+import { runFlow } from "../core/runFlow";
 import type {
   FlowDefinition,
-  FlowRunResult,
   FlowStage,
-  InvalidateEntry,
+  UseFlowOptions,
   UseFlowResult,
 } from "../types";
 
-function resolveInvalidations<TInput, TResult>(
-  flow: FlowDefinition<TInput, TResult>,
-  input: TInput,
-  result: TResult,
-): InvalidateEntry[] {
-  const { invalidate } = flow.config;
-
-  if (!invalidate) {
-    return [];
-  }
-
-  return typeof invalidate === "function"
-    ? invalidate({ input, result })
-    : invalidate;
-}
-
-function resolveRedirect<TInput, TResult>(
-  flow: FlowDefinition<TInput, TResult>,
-  input: TInput,
-  result: TResult,
-): string | undefined {
-  const { redirect } = flow.config;
-
-  if (!redirect) {
-    return undefined;
-  }
-
-  return typeof redirect === "function"
-    ? redirect({ input, result }) ?? undefined
-    : redirect;
-}
-
 export function useFlow<TInput, TResult>(
   flow: FlowDefinition<TInput, TResult>,
+  options: UseFlowOptions = {},
 ): UseFlowResult<TInput, TResult> {
   const [stage, setStage] = useState<FlowStage>("idle");
   const [error, setError] = useState<unknown>(null);
   const [lastResult, setLastResult] = useState<TResult | null>(null);
 
-  async function run(input: TInput): Promise<FlowRunResult<TResult>> {
+  async function run(input: TInput) {
     setError(null);
 
     if (flow.config.optimistic) {
@@ -56,29 +25,18 @@ export function useFlow<TInput, TResult>(
 
     setStage("running");
 
-    try {
-      const result = await flow.config.action(input);
-      const invalidations = resolveInvalidations(flow, input, result);
-      const redirectTo = resolveRedirect(flow, input, result);
+    const result = await runFlow(flow, input, options);
 
-      setLastResult(result);
-      setStage("success");
-
-      await flow.config.onSuccess?.({ input, result });
-
-      return {
-        data: result,
-        invalidations,
-        redirectTo,
-      };
-    } catch (caughtError) {
-      setError(caughtError);
+    if (result.error) {
+      setError(result.error);
       setStage(flow.config.optimistic ? "rolled_back" : "error");
-
-      await flow.config.onError?.({ input, error: caughtError });
-
-      return { error: caughtError };
+      return result;
     }
+
+    setLastResult(result.data ?? null);
+    setStage("success");
+
+    return result;
   }
 
   function reset() {
