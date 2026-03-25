@@ -114,6 +114,14 @@ npm run build
 npm run test
 ```
 
+## Troubleshooting
+
+If TypeScript build artifacts ever appear inside `packages/*/src`, you can remove only those generated files with:
+
+```powershell
+Get-ChildItem packages -Recurse -Include *.js,*.js.map,*.d.ts,*.d.ts.map | Where-Object { $_.FullName -like '*\src\*' } | Remove-Item -Force
+```
+
 ## Publishing Direction
 
 Current packages intended for publication:
