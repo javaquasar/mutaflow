@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 
-import type { ClientTodo } from "../lib/client-store";
-import { hydrateTodos, store } from "../lib/client-store";
+import type { ClientTodo } from "../../lib/client-store";
+import { hydrateTodos, store } from "../../lib/client-store";
 
 export function StoreHydrator({ initialTodos }: { initialTodos: ClientTodo[] }) {
   useEffect(() => {
