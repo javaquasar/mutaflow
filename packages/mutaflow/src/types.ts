@@ -73,6 +73,27 @@ export type FlowActionContext = {
   signal: AbortSignal;
 };
 
+export type FlowAction<TInput, TResult> = (
+  input: TInput,
+  context: FlowActionContext,
+) => Promise<TResult>;
+
+export type FlowActionAdapter<TInput, TResult> = {
+  kind: string;
+  name?: string;
+  run: FlowAction<TInput, TResult>;
+};
+
+export type NextSafeActionResult<TResult> = {
+  data?: TResult;
+  validationErrors?: unknown;
+  serverError?: unknown;
+};
+
+export type NextSafeActionLike<TInput, TResult> = (
+  input: TInput,
+) => Promise<NextSafeActionResult<TResult>>;
+
 export type OptimisticConfig<TInput, TResult> = {
   target?: string;
   apply?: (current: unknown, input: TInput) => unknown;
@@ -86,7 +107,7 @@ export type ReconcileConfig<TResult> = {
 };
 
 export type FlowConfig<TInput, TResult> = {
-  action: (input: TInput, context: FlowActionContext) => Promise<TResult>;
+  action: FlowAction<TInput, TResult> | FlowActionAdapter<TInput, TResult>;
   optimistic?: OptimisticConfig<TInput, TResult>;
   reconcile?: ReconcileConfig<TResult>;
   invalidate?: InvalidateEntry[] | ((ctx: SuccessContext<TInput, TResult>) => InvalidateEntry[]);

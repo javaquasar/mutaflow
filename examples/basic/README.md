@@ -4,7 +4,7 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 
 ## Files
 
-- [src/createTodoFlow.ts](src/createTodoFlow.ts): flow definition
+- [src/createTodoFlow.ts](src/createTodoFlow.ts): flow definition using `createServerActionAdapter(...)`
 - [src/store.ts](src/store.ts): optimistic resource registry and mutation event stores
 - [src/CreateTodoButton.tsx](src/CreateTodoButton.tsx): client-side trigger with `useFlow`, `useResource`, `useFlowState`, and `useMutationEvents`
 - [src/MutationDebugPanel.tsx](src/MutationDebugPanel.tsx): prototype devtools timeline and inspector
@@ -12,7 +12,8 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 
 ## What It Demonstrates
 
-- a `createFlow(...)` definition around a server-like action
+- a `createFlow(...)` definition around a Next-oriented action adapter
+- `createServerActionAdapter(...)` for wrapping plain server actions
 - `createResourceStore(...)` with a real `todos:list` target
 - `createMutationEventStore(...)` as the base for future devtools
 - `optimistic.insert(...)` for list-first optimistic behavior

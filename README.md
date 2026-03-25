@@ -42,6 +42,8 @@ Today the scaffold includes:
 - `useResource`
 - `useFlowState`
 - `useMutationEvents`
+- `createServerActionAdapter`
+- `createNextSafeActionAdapter`
 - `optimistic.insert/update/remove/replace`
 - `mutaflow/next` tag and path builders
 - `@mutaflow/devtools` timeline and inspector prototype
@@ -56,29 +58,28 @@ The core runtime can now:
 - retry failed mutations
 - cancel in-flight mutations
 - track multiple concurrent mutations with flow ids
+- orchestrate plain server actions and next-safe-action-style clients through adapters
 
-## Working Locally
+## Adapter Direction
 
-```powershell
-npm install
-npm run typecheck
-npm run build
-npm run test
-```
+Mutaflow treats the mutation workflow as the main concern and the action source as an adapter.
+
+Today the first helpers are:
+- `createServerActionAdapter(action)`
+- `createNextSafeActionAdapter(action)`
+
+That means the same `createFlow(...)` API can sit on top of:
+- plain async server actions
+- Next.js-oriented server action functions
+- `next-safe-action` style clients returning `{ data, validationErrors, serverError }`
 
 ## Basic Direction
 
 The intended shape now looks like this:
 
 ```ts
-const store = createResourceStore({
-  "todos:list": [],
-});
-
-const events = createMutationEventStore();
-
 const flow = createFlow({
-  action: createTodo,
+  action: createServerActionAdapter(createTodo),
   optimistic: optimistic.insert({
     target: "todos:list",
     item: (input) => ({
@@ -87,19 +88,16 @@ const flow = createFlow({
       pending: true,
     }),
   }),
-  reconcile: {
-    target: "todos:list",
-    onSuccess: (current, result) =>
-      (Array.isArray(current) ? current : []).map((todo) =>
-        todo.id.startsWith("temp:") ? { ...todo, id: result.id, pending: false } : todo,
-      ),
-  },
 });
+```
 
-const mutation = useFlow(flow, { store, events, retries: 1 });
-const todos = useResource("todos:list", store) ?? [];
-const mutationEvents = useMutationEvents(events);
-const flowState = useFlowState(events, "createTodo");
+## Working Locally
+
+```powershell
+npm install
+npm run typecheck
+npm run build
+npm run test
 ```
 
 ## Publishing Direction

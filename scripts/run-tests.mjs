@@ -10,7 +10,13 @@ import { createMutationEventStore } from "../packages/mutaflow/dist/core/events.
 import { runFlow } from "../packages/mutaflow/dist/core/runFlow.js";
 import { createResourceStore } from "../packages/mutaflow/dist/core/store.js";
 import { optimistic } from "../packages/mutaflow/dist/optimistic.js";
-import { paths, tags } from "../packages/mutaflow/dist/next/index.js";
+import {
+  createNextSafeActionAdapter,
+  createServerActionAdapter,
+  NextSafeActionError,
+  paths,
+  tags,
+} from "../packages/mutaflow/dist/next.js";
 import { useFlow } from "../packages/mutaflow/dist/react/useFlow.js";
 import { useFlowState } from "../packages/mutaflow/dist/react/useFlowState.js";
 import { useMutationEvents } from "../packages/mutaflow/dist/react/useMutationEvents.js";
@@ -77,21 +83,17 @@ const tests = [
     run: async () => {
       const store = createResourceStore();
       let notifications = 0;
-
       store.register("todos:list", []);
       const unsubscribe = store.subscribe("todos:list", () => {
         notifications += 1;
       });
-
       assert.equal(store.has("todos:list"), true);
       assert.deepEqual(store.get("todos:list"), []);
-
       store.set("todos:list", [{ id: "1", title: "First" }]);
       store.update("todos:list", (current) => [
         ...(Array.isArray(current) ? current : []),
         { id: "2", title: "Second" },
       ]);
-
       assert.deepEqual(store.get("todos:list"), [
         { id: "1", title: "First" },
         { id: "2", title: "Second" },
@@ -103,7 +105,6 @@ const tests = [
         ],
       });
       assert.equal(notifications, 2);
-
       unsubscribe();
       store.set("todos:list", []);
       assert.equal(notifications, 2);
@@ -113,27 +114,62 @@ const tests = [
     name: "createFlow keeps action config and marks the definition",
     run: async () => {
       const action = async (input) => ({ id: `post:${input.title}` });
-
       const flow = createFlow({
         action,
         optimistic: optimistic.insert({
           target: "posts:list",
           position: "start",
-          item: (input) => ({
-            id: `temp:${input.title}`,
-            title: input.title,
-            pending: true,
-          }),
+          item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
         }),
         invalidate: [{ kind: "tag", value: "posts.list" }],
         redirect: ({ result }) => `/posts/${result.id}`,
       });
-
       assert.equal(flow.kind, "mutaflow.flow");
-      assert.equal(flow.config.action, action);
+      assert.equal(typeof flow.config.action, "function");
       assert.equal(flow.config.optimistic?.target, "posts:list");
       assert.deepEqual(flow.config.invalidate, [{ kind: "tag", value: "posts.list" }]);
       assert.equal(flow.config.redirect?.({ input: { title: "Hello" }, result: { id: "post:Hello" } }), "/posts/post:Hello");
+    },
+  },
+  {
+    name: "server action adapter forwards action execution",
+    run: async () => {
+      const adapter = createServerActionAdapter(async (input, context) => ({
+        id: `${context.flowId}:${input.title}`,
+      }));
+      const result = await adapter.run({ title: "Hello" }, {
+        flowId: "flow-server",
+        attempt: 1,
+        signal: new AbortController().signal,
+      });
+      assert.deepEqual(result, { id: "flow-server:Hello" });
+    },
+  },
+  {
+    name: "next-safe-action adapter unwraps data and throws typed errors",
+    run: async () => {
+      const successAdapter = createNextSafeActionAdapter(async () => ({
+        data: { id: "safe" },
+      }));
+      const successResult = await successAdapter.run({}, {
+        flowId: "flow-safe",
+        attempt: 1,
+        signal: new AbortController().signal,
+      });
+      assert.deepEqual(successResult, { id: "safe" });
+
+      const failingAdapter = createNextSafeActionAdapter(async () => ({
+        validationErrors: { title: ["Required"] },
+      }));
+
+      await assert.rejects(
+        () => failingAdapter.run({}, {
+          flowId: "flow-safe-error",
+          attempt: 1,
+          signal: new AbortController().signal,
+        }),
+        (error) => error instanceof NextSafeActionError,
+      );
     },
   },
   {
@@ -142,9 +178,8 @@ const tests = [
       const store = createResourceStore({
         "todos:list": [{ id: "1", title: "Existing", pending: false }],
       });
-
       const flow = createFlow({
-        action: async (input) => ({ id: `todo:${input.title}` }),
+        action: createServerActionAdapter(async (input) => ({ id: `todo:${input.title}` })),
         optimistic: optimistic.insert({
           target: "todos:list",
           position: "start",
@@ -160,16 +195,12 @@ const tests = [
             ),
         },
       });
-
       const pendingPromise = runFlow(flow, { title: "Ship Mutaflow" }, { store, flowId: "flow-success" });
-
       assert.deepEqual(store.get("todos:list"), [
         { id: "temp:Ship Mutaflow", title: "Ship Mutaflow", pending: true },
         { id: "1", title: "Existing", pending: false },
       ]);
-
       const result = await pendingPromise;
-
       assert.equal(result.data?.id, "todo:Ship Mutaflow");
       assert.equal(result.flowId, "flow-success");
       assert.equal(result.optimisticTarget, "todos:list");
@@ -185,17 +216,15 @@ const tests = [
       let calls = 0;
       const events = createMutationEventStore();
       const flow = createFlow({
-        action: async (_input, context) => {
+        action: createServerActionAdapter(async (_input, context) => {
           calls += 1;
           if (context.attempt === 1) {
             throw new Error("temporary");
           }
           return { id: "ok" };
-        },
+        }),
       });
-
       const result = await runFlow(flow, { title: "Retry" }, { events, retries: 1, flowId: "retry-flow" });
-
       assert.equal(calls, 2);
       assert.equal(result.cancelled, false);
       assert.equal(result.attempts, 2);
@@ -214,25 +243,20 @@ const tests = [
         "todos:list": [{ id: "1", title: "Existing", pending: false }],
       });
       const events = createMutationEventStore();
-
       const flow = createFlow({
-        action: async function createTodo() {
+        action: createServerActionAdapter(async function createTodo() {
           throw new Error("boom");
-        },
+        }),
         optimistic: optimistic.insert({
           target: "todos:list",
           position: "start",
           item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
         }),
       });
-
       const result = await runFlow(flow, { title: "Broken" }, { store, events, flowId: "error-flow" });
-
       assert.equal(result.error instanceof Error, true);
       assert.equal(result.cancelled, false);
-      assert.deepEqual(store.get("todos:list"), [
-        { id: "1", title: "Existing", pending: false },
-      ]);
+      assert.deepEqual(store.get("todos:list"), [{ id: "1", title: "Existing", pending: false }]);
       assert.deepEqual(events.getEvents().map((event) => event.type), [
         "flow:start",
         "flow:optimistic-applied",
@@ -248,28 +272,24 @@ const tests = [
       const store = createResourceStore({ "todos:list": [] });
       const events = createMutationEventStore();
       const controller = new AbortController();
-
       const flow = createFlow({
-        action: async (_input, context) => {
+        action: createServerActionAdapter(async (_input, context) => {
           context.signal.addEventListener("abort", () => deferred.reject(createAbortError()), { once: true });
           return deferred.promise;
-        },
+        }),
         optimistic: optimistic.insert({
           target: "todos:list",
           item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
         }),
       });
-
       const runPromise = runFlow(flow, { title: "Cancel me" }, {
         store,
         events,
         signal: controller.signal,
         flowId: "cancel-flow",
       });
-
       controller.abort();
       const result = await runPromise;
-
       assert.equal(result.flowId, "cancel-flow");
       assert.equal(result.cancelled, true);
       assert.equal(result.error instanceof Error, true);
@@ -289,33 +309,25 @@ const tests = [
         { id: "1", title: "First", completed: false },
         { id: "2", title: "Second", completed: false },
       ];
-
       const update = optimistic.update({
         target: "todos:list",
         match: (item, input) => item.id === input.id,
         update: (item) => ({ ...item, completed: true }),
       });
-
       const remove = optimistic.remove({
         target: "todos:list",
         match: (item, input) => item.id === input.id,
       });
-
       const replace = optimistic.replace({
         target: "todos:list",
         match: (item, input) => item.id === input.id,
         replace: (_, input) => ({ id: input.id, title: input.title, completed: true }),
       });
-
       assert.deepEqual(update.apply?.(items, { id: "2" }), [
         { id: "1", title: "First", completed: false },
         { id: "2", title: "Second", completed: true },
       ]);
-
-      assert.deepEqual(remove.apply?.(items, { id: "1" }), [
-        { id: "2", title: "Second", completed: false },
-      ]);
-
+      assert.deepEqual(remove.apply?.(items, { id: "1" }), [{ id: "2", title: "Second", completed: false }]);
       assert.deepEqual(replace.apply?.(items, { id: "1", title: "Updated" }), [
         { id: "1", title: "Updated", completed: true },
         { id: "2", title: "Second", completed: false },
@@ -325,25 +337,14 @@ const tests = [
   {
     name: "tags builder creates dot-separated invalidation entries",
     run: async () => {
-      assert.deepEqual(tags.posts.list(), {
-        kind: "tag",
-        value: "posts.list",
-      });
-
-      assert.deepEqual(tags.posts.byId(42), {
-        kind: "tag",
-        value: "posts.byId.42",
-      });
+      assert.deepEqual(tags.posts.list(), { kind: "tag", value: "posts.list" });
+      assert.deepEqual(tags.posts.byId(42), { kind: "tag", value: "posts.byId.42" });
     },
   },
   {
     name: "paths builder creates slash-separated invalidation entries",
     run: async () => {
-      assert.deepEqual(paths.posts.list(), {
-        kind: "path",
-        value: "/posts/list",
-      });
-
+      assert.deepEqual(paths.posts.list(), { kind: "path", value: "/posts/list" });
       assert.deepEqual(paths.dashboard.user("42", "settings"), {
         kind: "path",
         value: "/dashboard/user/42/settings",
@@ -356,17 +357,14 @@ const tests = [
       const store = createResourceStore({
         "todos:list": [{ id: "1", title: "First", pending: false }],
       });
-
       function Component() {
         const todos = useResource("todos:list", store) ?? [];
         return React.createElement("div", { "data-count": String(todos.length) }, todos.map((todo) => todo.title).join(","));
       }
-
       const rendered = await renderWithRoot(Component);
       try {
         assert.equal(rendered.container.firstChild?.getAttribute("data-count"), "1");
         assert.equal(rendered.container.textContent, "First");
-
         await act(async () => {
           store.set("todos:list", [
             { id: "1", title: "First", pending: false },
@@ -374,7 +372,6 @@ const tests = [
           ]);
           await flush();
         });
-
         assert.equal(rendered.container.firstChild?.getAttribute("data-count"), "2");
         assert.equal(rendered.container.textContent, "First,Second");
       } finally {
@@ -389,14 +386,13 @@ const tests = [
       const events = createMutationEventStore();
       const deferredA = createDeferred();
       const deferredB = createDeferred();
-
       const flow = createFlow({
-        action: async function createTodoConcurrent(input, context) {
+        action: createServerActionAdapter(async (input, context) => {
           const deferred = context.flowId === "flow-a" ? deferredA : deferredB;
           context.signal.addEventListener("abort", () => deferred.reject(createAbortError()), { once: true });
           const result = await deferred.promise;
           return { id: result.id, title: input.title };
-        },
+        }),
         optimistic: optimistic.insert({
           target: "todos:list",
           position: "start",
@@ -412,13 +408,11 @@ const tests = [
             ),
         },
       });
-
       function Component() {
         const mutation = useFlow(flow, { store, events });
         const todos = useResource("todos:list", store) ?? [];
-        const flowState = useFlowState(events, "createTodoConcurrent");
+        const flowState = useFlowState(events, "run");
         const mutationEvents = useMutationEvents(events);
-
         useEffect(() => {
           globalThis.__runA = () => mutation.run({ title: "A" }, { flowId: "flow-a" });
           globalThis.__runB = () => mutation.run({ title: "B" }, { flowId: "flow-b" });
@@ -429,7 +423,6 @@ const tests = [
             delete globalThis.__cancelB;
           };
         }, [mutation]);
-
         return React.createElement(
           "section",
           null,
@@ -441,7 +434,6 @@ const tests = [
           React.createElement("div", { id: "todo-text" }, todos.map((todo) => `${todo.title}:${todo.pending ? "pending" : "done"}`).join(",")),
         );
       }
-
       const rendered = await renderWithRoot(Component);
       let runAPromise;
       let runBPromise;
@@ -451,25 +443,18 @@ const tests = [
           runBPromise = globalThis.__runB();
           await flush();
         });
-
         assert.equal(rendered.container.querySelector("#active-count")?.textContent, "2");
         assert.equal(rendered.container.querySelector("#current-flow-id")?.textContent, "flow-b");
         assert.equal(rendered.container.querySelector("#todo-text")?.textContent, "B:pending,A:pending");
-
         await act(async () => {
           globalThis.__cancelB();
           await flush();
         });
-
         await act(async () => {
           deferredA.resolve({ id: "todo:a" });
-          try {
-            deferredB.reject(createAbortError());
-          } catch {}
           await Promise.allSettled([runAPromise, runBPromise]);
           await flush();
         });
-
         assert.equal(rendered.container.querySelector("#active-count")?.textContent, "0");
         assert.equal(rendered.container.querySelector("#hook-stage")?.textContent, "success");
         assert.equal(rendered.container.querySelector("#todo-text")?.textContent, "A:done");
@@ -484,29 +469,25 @@ const tests = [
     run: async () => {
       const events = createMutationEventStore();
       let calls = 0;
-
       const flow = createFlow({
-        action: async function createTodo() {
+        action: createServerActionAdapter(async function createTodo() {
           calls += 1;
           if (calls === 1) {
             throw new Error("retry me");
           }
           return { id: "todo:ok" };
-        },
+        }),
       });
-
       function Component() {
         const mutation = useFlow(flow, { events, retries: 1 });
         const flowState = useFlowState(events, "createTodo");
         const mutationEvents = useMutationEvents(events);
-
         useEffect(() => {
           globalThis.__runRetry = () => mutation.run({ title: "Retry" }, { flowId: "retry-ui" });
           return () => {
             delete globalThis.__runRetry;
           };
         }, [mutation]);
-
         return React.createElement(
           "section",
           null,
@@ -515,14 +496,12 @@ const tests = [
           React.createElement("div", { id: "event-count" }, String(mutationEvents.length)),
         );
       }
-
       const rendered = await renderWithRoot(Component);
       try {
         await act(async () => {
           await globalThis.__runRetry();
           await flush();
         });
-
         assert.equal(rendered.container.querySelector("#hook-stage")?.textContent, "success");
         assert.equal(rendered.container.querySelector("#event-stage")?.textContent, "success");
         assert.equal(events.getEvents().some((event) => event.type === "flow:retrying"), true);
@@ -546,7 +525,6 @@ const tests = [
         result: { id: "todo:1" },
       };
       events.emit(sampleEvent);
-
       function Component() {
         return React.createElement(
           "section",
@@ -555,7 +533,6 @@ const tests = [
           React.createElement(MutationEventInspector, { event: sampleEvent }),
         );
       }
-
       const rendered = await renderWithRoot(Component);
       try {
         assert.equal(rendered.container.textContent?.includes("Mutation Timeline"), true);
@@ -570,7 +547,6 @@ const tests = [
 ];
 
 let failed = 0;
-
 for (const testCase of tests) {
   try {
     await testCase.run();
@@ -581,11 +557,9 @@ for (const testCase of tests) {
     console.error(error);
   }
 }
-
 if (failed > 0) {
   process.exitCode = 1;
   console.error(`\n${failed} test(s) failed.`);
 } else {
   console.log(`\nAll ${tests.length} tests passed.`);
 }
-

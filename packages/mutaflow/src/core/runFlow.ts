@@ -1,3 +1,4 @@
+import { resolveFlowAction } from "./action.js";
 import type {
   FlowDefinition,
   FlowRunOptions,
@@ -7,7 +8,13 @@ import type {
 } from "../types.js";
 
 function getFlowName<TInput, TResult>(flow: FlowDefinition<TInput, TResult>): string {
-  return flow.config.action.name || "anonymousFlow";
+  const action = flow.config.action;
+
+  if (typeof action === "function") {
+    return action.name || "anonymousFlow";
+  }
+
+  return action.name || action.run.name || action.kind || "anonymousFlow";
 }
 
 function createEvent<TInput, TResult>(
@@ -72,6 +79,7 @@ export async function runFlow<TInput, TResult>(
   input: TInput,
   options: FlowRunOptions = {},
 ): Promise<FlowRunResult<TResult>> {
+  const action = resolveFlowAction(flow.config.action);
   const { store, events, signal, retries = 0 } = options;
   const flowId = options.flowId ?? createFlowId();
   const optimisticTarget = flow.config.optimistic?.target;
@@ -126,7 +134,7 @@ export async function runFlow<TInput, TResult>(
         throw createAbortError();
       }
 
-      const result = await flow.config.action(input, {
+      const result = await action(input, {
         flowId,
         attempt: attempts,
         signal: controller.signal,
@@ -270,3 +278,4 @@ export async function runFlow<TInput, TResult>(
     optimisticTarget,
   };
 }
+

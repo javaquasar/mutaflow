@@ -1,5 +1,5 @@
 import { createFlow, optimistic } from "mutaflow";
-import { tags } from "mutaflow/next";
+import { createServerActionAdapter, tags } from "mutaflow/next";
 
 export type CreateTodoInput = {
   title: string;
@@ -11,12 +11,12 @@ export type Todo = {
   pending?: boolean;
 };
 
-export async function createTodo(input: CreateTodoInput): Promise<{ id: string }> {
-  return { id: `todo-${input.title.toLowerCase().replace(/\s+/g, "-")}` };
+export async function createTodo(input: CreateTodoInput): Promise<{ id: string; title: string }> {
+  return { id: `todo-${input.title.toLowerCase().replace(/\s+/g, "-")}`, title: input.title };
 }
 
 export const createTodoFlow = createFlow({
-  action: createTodo,
+  action: createServerActionAdapter(createTodo),
   optimistic: optimistic.insert<CreateTodoInput, Todo>({
     target: "todos:list",
     position: "start",

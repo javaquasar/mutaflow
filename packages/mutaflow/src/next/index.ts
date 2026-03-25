@@ -1,5 +1,11 @@
 import type { InvalidateEntry } from "../types.js";
 
+export {
+  createNextSafeActionAdapter,
+  createServerActionAdapter,
+  NextSafeActionError,
+} from "./adapters.js";
+
 type BuilderKind = "tag" | "path";
 
 type BuilderNode = {
