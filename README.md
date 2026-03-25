@@ -21,8 +21,9 @@ Keeping publishable packages in `packages/` makes it easier to grow into a small
 
 - [packages/mutaflow](packages/mutaflow): the main publishable npm package
 - [packages/devtools](packages/devtools): prototype timeline and event inspector package
+- [examples/basic/README.md](examples/basic/README.md): small API direction example
+- [examples/next-app/README.md](examples/next-app/README.md): full Next App Router example with server actions and devtools
 - [tests](tests): node-based smoke tests for the current scaffold
-- [examples/basic/README.md](examples/basic/README.md): usage direction example
 - [POSITIONING.md](POSITIONING.md): positioning and market framing
 - [MVP_API.md](MVP_API.md): MVP API direction
 - [ECOSYSTEM_ROADMAP.md](ECOSYSTEM_ROADMAP.md): future package roadmap
@@ -59,6 +60,19 @@ The core runtime can now:
 - cancel in-flight mutations
 - track multiple concurrent mutations with flow ids
 - orchestrate plain server actions and next-safe-action-style clients through adapters
+
+## Examples
+
+If you want the fastest orientation path:
+- start with [examples/basic/README.md](examples/basic/README.md)
+- then move to [examples/next-app/README.md](examples/next-app/README.md)
+
+The Next example shows:
+- App Router layout
+- real server actions
+- optimistic client store hydration
+- `createServerActionAdapter(...)`
+- `@mutaflow/devtools` in a real page
 
 ## Adapter Direction
 
