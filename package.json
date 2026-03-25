@@ -15,10 +15,10 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace mutaflow",
-    "typecheck": "npm run typecheck --workspace mutaflow",
+    "build": "npm run build --workspace mutaflow && npm run build --workspace @mutaflow/devtools",
+    "typecheck": "npm run typecheck --workspace mutaflow && npm run build --workspace mutaflow && npm run typecheck --workspace @mutaflow/devtools",
     "test": "npm run build && node scripts/run-tests.mjs",
-    "clean": "powershell -Command Remove-Item -Recurse -Force packages/mutaflow/dist -ErrorAction SilentlyContinue"
+    "clean": "powershell -Command Remove-Item -Recurse -Force packages/mutaflow/dist,packages/devtools/dist -ErrorAction SilentlyContinue"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

@@ -7,6 +7,7 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 - [src/createTodoFlow.ts](src/createTodoFlow.ts): flow definition
 - [src/store.ts](src/store.ts): optimistic resource registry and mutation event stores
 - [src/CreateTodoButton.tsx](src/CreateTodoButton.tsx): client-side trigger with `useFlow`, `useResource`, `useFlowState`, and `useMutationEvents`
+- [src/MutationDebugPanel.tsx](src/MutationDebugPanel.tsx): prototype devtools timeline and inspector
 - [src/App.tsx](src/App.tsx): tiny app shell
 
 ## What It Demonstrates
@@ -17,9 +18,10 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 - `optimistic.insert(...)` for list-first optimistic behavior
 - `reconcile.onSuccess(...)` replacing the optimistic resource after success
 - `useResource(...)` for reading resource state from the store in React
-- `useFlow(...)` for pending state and mutation execution
+- `useFlow(...)` for pending state, retries, cancellation, and mutation execution
 - `useFlowState(...)` for reading the latest flow stage from the event stream
 - `useMutationEvents(...)` for observing the mutation timeline in React
+- `@mutaflow/devtools` timeline and event inspector components
 - `tags.todos.list()` and `tags.todos.byId(...)` invalidation metadata
 
 This example is intentionally small and framework-light.

@@ -4,7 +4,8 @@ export type FlowStage =
   | "running"
   | "success"
   | "error"
-  | "rolled_back";
+  | "rolled_back"
+  | "cancelled";
 
 export type InvalidateEntry =
   | { kind: "tag"; value: string }
@@ -35,8 +36,10 @@ export type ResourceStore = {
 export type MutationEventType =
   | "flow:start"
   | "flow:optimistic-applied"
+  | "flow:retrying"
   | "flow:success"
   | "flow:error"
+  | "flow:cancelled"
   | "flow:rolled-back"
   | "flow:reconciled";
 
@@ -44,6 +47,8 @@ export type MutationEvent = {
   type: MutationEventType;
   timestamp: number;
   flowName: string;
+  flowId: string;
+  attempt: number;
   stage: FlowStage;
   target?: string;
   input?: unknown;
@@ -62,6 +67,12 @@ export type MutationEventStore = {
   subscribe: (listener: MutationEventListener) => () => void;
 };
 
+export type FlowActionContext = {
+  flowId: string;
+  attempt: number;
+  signal: AbortSignal;
+};
+
 export type OptimisticConfig<TInput, TResult> = {
   target?: string;
   apply?: (current: unknown, input: TInput) => unknown;
@@ -75,7 +86,7 @@ export type ReconcileConfig<TResult> = {
 };
 
 export type FlowConfig<TInput, TResult> = {
-  action: (input: TInput) => Promise<TResult>;
+  action: (input: TInput, context: FlowActionContext) => Promise<TResult>;
   optimistic?: OptimisticConfig<TInput, TResult>;
   reconcile?: ReconcileConfig<TResult>;
   invalidate?: InvalidateEntry[] | ((ctx: SuccessContext<TInput, TResult>) => InvalidateEntry[]);
@@ -92,9 +103,15 @@ export type FlowDefinition<TInput, TResult> = {
 export type FlowRunOptions = {
   store?: ResourceStore;
   events?: MutationEventStore;
+  flowId?: string;
+  retries?: number;
+  signal?: AbortSignal;
 };
 
 export type FlowRunResult<TResult> = {
+  flowId: string;
+  attempts: number;
+  cancelled: boolean;
   data?: TResult;
   error?: unknown;
   invalidations?: InvalidateEntry[];
@@ -102,14 +119,26 @@ export type FlowRunResult<TResult> = {
   optimisticTarget?: string;
 };
 
+export type UseFlowRunOptions = {
+  flowId?: string;
+  retries?: number;
+};
+
 export type UseFlowOptions = {
   store?: ResourceStore;
   events?: MutationEventStore;
+  retries?: number;
+  generateFlowId?: () => string;
 };
 
 export type UseFlowResult<TInput, TResult> = {
-  run: (input: TInput) => Promise<FlowRunResult<TResult>>;
+  run: (input: TInput, options?: UseFlowRunOptions) => Promise<FlowRunResult<TResult>>;
+  cancel: (flowId?: string) => void;
+  cancelAll: () => void;
   pending: boolean;
+  activeCount: number;
+  activeFlowIds: string[];
+  currentFlowId: string | null;
   stage: FlowStage;
   error: unknown;
   lastResult: TResult | null;

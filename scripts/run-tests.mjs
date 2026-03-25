@@ -15,6 +15,7 @@ import { useFlow } from "../packages/mutaflow/dist/react/useFlow.js";
 import { useFlowState } from "../packages/mutaflow/dist/react/useFlowState.js";
 import { useMutationEvents } from "../packages/mutaflow/dist/react/useMutationEvents.js";
 import { useResource } from "../packages/mutaflow/dist/react/useResource.js";
+import { MutationEventInspector, MutationTimelinePanel } from "../packages/devtools/dist/index.js";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 globalThis.window = dom.window;
@@ -62,6 +63,12 @@ async function renderWithRoot(Component) {
       container.remove();
     },
   };
+}
+
+function createAbortError() {
+  const error = new Error("Mutation cancelled");
+  error.name = "AbortError";
+  return error;
 }
 
 const tests = [
@@ -154,7 +161,7 @@ const tests = [
         },
       });
 
-      const pendingPromise = runFlow(flow, { title: "Ship Mutaflow" }, { store });
+      const pendingPromise = runFlow(flow, { title: "Ship Mutaflow" }, { store, flowId: "flow-success" });
 
       assert.deepEqual(store.get("todos:list"), [
         { id: "temp:Ship Mutaflow", title: "Ship Mutaflow", pending: true },
@@ -164,10 +171,39 @@ const tests = [
       const result = await pendingPromise;
 
       assert.equal(result.data?.id, "todo:Ship Mutaflow");
+      assert.equal(result.flowId, "flow-success");
       assert.equal(result.optimisticTarget, "todos:list");
       assert.deepEqual(store.get("todos:list"), [
         { id: "todo:Ship Mutaflow", title: "Ship Mutaflow", pending: false },
         { id: "1", title: "Existing", pending: false },
+      ]);
+    },
+  },
+  {
+    name: "runFlow retries failed mutation and then succeeds",
+    run: async () => {
+      let calls = 0;
+      const events = createMutationEventStore();
+      const flow = createFlow({
+        action: async (_input, context) => {
+          calls += 1;
+          if (context.attempt === 1) {
+            throw new Error("temporary");
+          }
+          return { id: "ok" };
+        },
+      });
+
+      const result = await runFlow(flow, { title: "Retry" }, { events, retries: 1, flowId: "retry-flow" });
+
+      assert.equal(calls, 2);
+      assert.equal(result.cancelled, false);
+      assert.equal(result.attempts, 2);
+      assert.equal(result.data?.id, "ok");
+      assert.deepEqual(events.getEvents().map((event) => event.type), [
+        "flow:start",
+        "flow:retrying",
+        "flow:success",
       ]);
     },
   },
@@ -190,10 +226,10 @@ const tests = [
         }),
       });
 
-      const pendingPromise = runFlow(flow, { title: "Broken" }, { store, events });
-      const result = await pendingPromise;
+      const result = await runFlow(flow, { title: "Broken" }, { store, events, flowId: "error-flow" });
 
       assert.equal(result.error instanceof Error, true);
+      assert.equal(result.cancelled, false);
       assert.deepEqual(store.get("todos:list"), [
         { id: "1", title: "Existing", pending: false },
       ]);
@@ -202,6 +238,47 @@ const tests = [
         "flow:optimistic-applied",
         "flow:rolled-back",
         "flow:error",
+      ]);
+    },
+  },
+  {
+    name: "runFlow reports cancellation and preserves flow id metadata",
+    run: async () => {
+      const deferred = createDeferred();
+      const store = createResourceStore({ "todos:list": [] });
+      const events = createMutationEventStore();
+      const controller = new AbortController();
+
+      const flow = createFlow({
+        action: async (_input, context) => {
+          context.signal.addEventListener("abort", () => deferred.reject(createAbortError()), { once: true });
+          return deferred.promise;
+        },
+        optimistic: optimistic.insert({
+          target: "todos:list",
+          item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+        }),
+      });
+
+      const runPromise = runFlow(flow, { title: "Cancel me" }, {
+        store,
+        events,
+        signal: controller.signal,
+        flowId: "cancel-flow",
+      });
+
+      controller.abort();
+      const result = await runPromise;
+
+      assert.equal(result.flowId, "cancel-flow");
+      assert.equal(result.cancelled, true);
+      assert.equal(result.error instanceof Error, true);
+      assert.deepEqual(store.get("todos:list"), []);
+      assert.deepEqual(events.getEvents().map((event) => event.type), [
+        "flow:start",
+        "flow:optimistic-applied",
+        "flow:rolled-back",
+        "flow:cancelled",
       ]);
     },
   },
@@ -306,16 +383,17 @@ const tests = [
     },
   },
   {
-    name: "useFlow, useFlowState, and useMutationEvents reflect mutation lifecycle in React",
+    name: "useFlow supports concurrent runs, flow ids, and cancellation in React",
     run: async () => {
-      const store = createResourceStore({
-        "todos:list": [],
-      });
+      const store = createResourceStore({ "todos:list": [] });
       const events = createMutationEventStore();
-      const deferred = createDeferred();
+      const deferredA = createDeferred();
+      const deferredB = createDeferred();
 
       const flow = createFlow({
-        action: async function createTodo(input) {
+        action: async function createTodoConcurrent(input, context) {
+          const deferred = context.flowId === "flow-a" ? deferredA : deferredB;
+          context.signal.addEventListener("abort", () => deferred.reject(createAbortError()), { once: true });
           const result = await deferred.promise;
           return { id: result.id, title: input.title };
         },
@@ -328,7 +406,7 @@ const tests = [
           target: "todos:list",
           onSuccess: (current, result) =>
             (Array.isArray(current) ? current : []).map((todo) =>
-              todo.id === "temp:Ship Mutaflow"
+              String(todo.id).startsWith("temp:") && todo.title === result.title
                 ? { ...todo, id: result.id, pending: false }
                 : todo,
             ),
@@ -338,13 +416,94 @@ const tests = [
       function Component() {
         const mutation = useFlow(flow, { store, events });
         const todos = useResource("todos:list", store) ?? [];
+        const flowState = useFlowState(events, "createTodoConcurrent");
+        const mutationEvents = useMutationEvents(events);
+
+        useEffect(() => {
+          globalThis.__runA = () => mutation.run({ title: "A" }, { flowId: "flow-a" });
+          globalThis.__runB = () => mutation.run({ title: "B" }, { flowId: "flow-b" });
+          globalThis.__cancelB = () => mutation.cancel("flow-b");
+          return () => {
+            delete globalThis.__runA;
+            delete globalThis.__runB;
+            delete globalThis.__cancelB;
+          };
+        }, [mutation]);
+
+        return React.createElement(
+          "section",
+          null,
+          React.createElement("div", { id: "hook-stage" }, mutation.stage),
+          React.createElement("div", { id: "event-stage" }, flowState),
+          React.createElement("div", { id: "active-count" }, String(mutation.activeCount)),
+          React.createElement("div", { id: "current-flow-id" }, mutation.currentFlowId ?? "none"),
+          React.createElement("div", { id: "event-count" }, String(mutationEvents.length)),
+          React.createElement("div", { id: "todo-text" }, todos.map((todo) => `${todo.title}:${todo.pending ? "pending" : "done"}`).join(",")),
+        );
+      }
+
+      const rendered = await renderWithRoot(Component);
+      let runAPromise;
+      let runBPromise;
+      try {
+        await act(async () => {
+          runAPromise = globalThis.__runA();
+          runBPromise = globalThis.__runB();
+          await flush();
+        });
+
+        assert.equal(rendered.container.querySelector("#active-count")?.textContent, "2");
+        assert.equal(rendered.container.querySelector("#current-flow-id")?.textContent, "flow-b");
+        assert.equal(rendered.container.querySelector("#todo-text")?.textContent, "B:pending,A:pending");
+
+        await act(async () => {
+          globalThis.__cancelB();
+          await flush();
+        });
+
+        await act(async () => {
+          deferredA.resolve({ id: "todo:a" });
+          try {
+            deferredB.reject(createAbortError());
+          } catch {}
+          await Promise.allSettled([runAPromise, runBPromise]);
+          await flush();
+        });
+
+        assert.equal(rendered.container.querySelector("#active-count")?.textContent, "0");
+        assert.equal(rendered.container.querySelector("#hook-stage")?.textContent, "success");
+        assert.equal(rendered.container.querySelector("#todo-text")?.textContent, "A:done");
+        assert.equal(events.getEvents().some((event) => event.type === "flow:cancelled" && event.flowId === "flow-b"), true);
+      } finally {
+        await rendered.cleanup();
+      }
+    },
+  },
+  {
+    name: "useFlowState and useMutationEvents reflect retries and success in React",
+    run: async () => {
+      const events = createMutationEventStore();
+      let calls = 0;
+
+      const flow = createFlow({
+        action: async function createTodo() {
+          calls += 1;
+          if (calls === 1) {
+            throw new Error("retry me");
+          }
+          return { id: "todo:ok" };
+        },
+      });
+
+      function Component() {
+        const mutation = useFlow(flow, { events, retries: 1 });
         const flowState = useFlowState(events, "createTodo");
         const mutationEvents = useMutationEvents(events);
 
         useEffect(() => {
-          globalThis.__runMutation = () => mutation.run({ title: "Ship Mutaflow" });
+          globalThis.__runRetry = () => mutation.run({ title: "Retry" }, { flowId: "retry-ui" });
           return () => {
-            delete globalThis.__runMutation;
+            delete globalThis.__runRetry;
           };
         }, [mutation]);
 
@@ -354,39 +513,55 @@ const tests = [
           React.createElement("div", { id: "hook-stage" }, mutation.stage),
           React.createElement("div", { id: "event-stage" }, flowState),
           React.createElement("div", { id: "event-count" }, String(mutationEvents.length)),
-          React.createElement("div", { id: "todo-count" }, String(todos.length)),
-          React.createElement("div", { id: "todo-text" }, todos.map((todo) => `${todo.title}:${todo.pending ? "pending" : "done"}`).join(",")),
         );
       }
 
       const rendered = await renderWithRoot(Component);
       try {
-        assert.equal(rendered.container.querySelector("#hook-stage")?.textContent, "idle");
-        assert.equal(rendered.container.querySelector("#event-stage")?.textContent, "idle");
-        assert.equal(rendered.container.querySelector("#event-count")?.textContent, "0");
-
-        let runPromise;
         await act(async () => {
-          runPromise = globalThis.__runMutation();
-          await flush();
-        });
-
-        assert.equal(rendered.container.querySelector("#hook-stage")?.textContent, "running");
-        assert.equal(rendered.container.querySelector("#event-stage")?.textContent, "optimistic");
-        assert.equal(rendered.container.querySelector("#event-count")?.textContent, "2");
-        assert.equal(rendered.container.querySelector("#todo-count")?.textContent, "1");
-        assert.equal(rendered.container.querySelector("#todo-text")?.textContent, "Ship Mutaflow:pending");
-
-        await act(async () => {
-          deferred.resolve({ id: "todo:ship-mutaflow" });
-          await runPromise;
+          await globalThis.__runRetry();
           await flush();
         });
 
         assert.equal(rendered.container.querySelector("#hook-stage")?.textContent, "success");
         assert.equal(rendered.container.querySelector("#event-stage")?.textContent, "success");
-        assert.equal(rendered.container.querySelector("#event-count")?.textContent, "4");
-        assert.equal(rendered.container.querySelector("#todo-text")?.textContent, "Ship Mutaflow:done");
+        assert.equal(events.getEvents().some((event) => event.type === "flow:retrying"), true);
+      } finally {
+        await rendered.cleanup();
+      }
+    },
+  },
+  {
+    name: "devtools timeline panel and inspector render mutation events",
+    run: async () => {
+      const events = createMutationEventStore();
+      const sampleEvent = {
+        type: "flow:success",
+        timestamp: Date.now(),
+        flowName: "createTodo",
+        flowId: "flow-1",
+        attempt: 1,
+        stage: "success",
+        target: "todos:list",
+        result: { id: "todo:1" },
+      };
+      events.emit(sampleEvent);
+
+      function Component() {
+        return React.createElement(
+          "section",
+          null,
+          React.createElement(MutationTimelinePanel, { store: events, flowName: "createTodo" }),
+          React.createElement(MutationEventInspector, { event: sampleEvent }),
+        );
+      }
+
+      const rendered = await renderWithRoot(Component);
+      try {
+        assert.equal(rendered.container.textContent?.includes("Mutation Timeline"), true);
+        assert.equal(rendered.container.textContent?.includes("flow:success"), true);
+        assert.equal(rendered.container.textContent?.includes("createTodo"), true);
+        assert.equal(rendered.container.textContent?.includes('"flowId": "flow-1"'), true);
       } finally {
         await rendered.cleanup();
       }

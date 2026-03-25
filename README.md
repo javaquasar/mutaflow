@@ -2,7 +2,7 @@
 
 Mutaflow is a mutation orchestration library for Next.js Server Actions.
 
-The repository uses a small monorepo layout on purpose. Today it contains one publishable package, but the structure is designed to support the future Mutaflow ecosystem without a painful repo migration later.
+The repository uses a small monorepo layout on purpose. Today it contains one publishable package and one prototype tooling package, but the structure is designed to support the future Mutaflow ecosystem without a painful repo migration later.
 
 ## Why `packages/`
 
@@ -15,11 +15,12 @@ Mutaflow is starting as one library, but the product direction naturally expands
 - example and playground support packages
 - linting or conventions packages for flow design
 
-Keeping the publishable package in `packages/mutaflow` makes it easier to grow into a small ecosystem while keeping examples, docs, CI, and future packages in one repository.
+Keeping publishable packages in `packages/` makes it easier to grow into a small ecosystem while keeping examples, docs, CI, and future packages in one repository.
 
 ## Repository Layout
 
 - [packages/mutaflow](packages/mutaflow): the main publishable npm package
+- [packages/devtools](packages/devtools): prototype timeline and event inspector package
 - [tests](tests): node-based smoke tests for the current scaffold
 - [examples/basic/README.md](examples/basic/README.md): usage direction example
 - [POSITIONING.md](POSITIONING.md): positioning and market framing
@@ -32,8 +33,6 @@ Keeping the publishable package in `packages/mutaflow` makes it easier to grow i
 
 ## Current Scope
 
-The current codebase focuses on the core package only.
-
 Today the scaffold includes:
 - `createFlow`
 - `createResourceStore`
@@ -45,6 +44,7 @@ Today the scaffold includes:
 - `useMutationEvents`
 - `optimistic.insert/update/remove/replace`
 - `mutaflow/next` tag and path builders
+- `@mutaflow/devtools` timeline and inspector prototype
 
 The core runtime can now:
 - register resource targets
@@ -53,7 +53,9 @@ The core runtime can now:
 - roll back on failure
 - reconcile on success
 - emit mutation lifecycle events
-- support a future devtools layer without rewriting the runtime
+- retry failed mutations
+- cancel in-flight mutations
+- track multiple concurrent mutations with flow ids
 
 ## Working Locally
 
@@ -94,21 +96,24 @@ const flow = createFlow({
   },
 });
 
+const mutation = useFlow(flow, { store, events, retries: 1 });
 const todos = useResource("todos:list", store) ?? [];
-const mutation = useFlow(flow, { store, events });
 const mutationEvents = useMutationEvents(events);
 const flowState = useFlowState(events, "createTodo");
 ```
 
 ## Publishing Direction
 
-The package intended for publication today is [packages/mutaflow](packages/mutaflow).
+Current packages intended for publication:
+- [packages/mutaflow](packages/mutaflow)
+- [packages/devtools](packages/devtools)
 
 Typical publish flow:
 
 ```powershell
 npm run build
 npm publish --workspace mutaflow
+npm publish --workspace @mutaflow/devtools
 ```
 
 GitHub Actions workflows live in [.github/workflows](.github/workflows).
