@@ -1,5 +1,6 @@
 import { resolveFlowAction } from "./action.js";
 import type {
+  ConsistencyPreset,
   FlowBaseContext,
   FlowDefinition,
   FlowMeta,
@@ -47,6 +48,39 @@ function resolveInvalidations<TInput, TResult, TMeta extends FlowMeta>(
   return typeof invalidate === "function"
     ? invalidate({ input, result })
     : invalidate;
+}
+
+function resolveConsistency<TInput, TResult, TMeta extends FlowMeta>(
+  flow: FlowDefinition<TInput, TResult, TMeta>,
+  input: TInput,
+  result: TResult,
+): ConsistencyPreset | undefined {
+  const { consistency } = flow.config;
+
+  if (!consistency) {
+    return undefined;
+  }
+
+  return typeof consistency === "function"
+    ? consistency({ input, result })
+    : consistency;
+}
+
+function mergeInvalidations(
+  directInvalidations: InvalidateEntry[],
+  consistency: ConsistencyPreset | undefined,
+): InvalidateEntry[] {
+  const merged = [...directInvalidations, ...(consistency?.invalidations ?? [])];
+  const seen = new Set<string>();
+
+  return merged.filter((entry) => {
+    const key = `${entry.kind}:${entry.value}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 function resolveRedirect<TInput, TResult, TMeta extends FlowMeta>(
@@ -208,7 +242,9 @@ export async function runFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta
           signal: controller.signal,
         }),
       );
-      const invalidations = resolveInvalidations(flow, input, result);
+      const directInvalidations = resolveInvalidations(flow, input, result);
+      const consistency = resolveConsistency(flow, input, result);
+      const invalidations = mergeInvalidations(directInvalidations, consistency);
       const redirectTo = resolveRedirect(flow, input, result);
 
       if (store && reconcileTarget && flow.config.reconcile?.onSuccess) {
@@ -250,6 +286,7 @@ export async function runFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta
         ...attemptContext,
         result,
         invalidations,
+        consistency,
         redirectTo,
       };
 
@@ -265,6 +302,7 @@ export async function runFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta
         result,
         target: reconcileTarget ?? optimisticTarget,
         invalidations,
+        consistency,
         redirectTo,
       }));
 
@@ -273,6 +311,7 @@ export async function runFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta
         result,
         cancelled: false,
         invalidations,
+        consistency,
         redirectTo,
       };
 
@@ -284,6 +323,7 @@ export async function runFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta
         cancelled: false,
         data: result,
         invalidations,
+        consistency,
         redirectTo,
         optimisticTarget,
         meta,
@@ -387,4 +427,3 @@ export async function runFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta
     meta,
   };
 }
-

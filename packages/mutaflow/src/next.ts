@@ -1,5 +1,6 @@
 export {
   createInvalidationRegistry,
+  consistency,
   definePaths,
   defineTags,
   paths,

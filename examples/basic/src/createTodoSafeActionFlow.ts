@@ -1,5 +1,6 @@
 import { optimistic } from "mutaflow";
 import {
+  consistency,
   createInvalidationRegistry,
   definePaths,
   defineTags,
@@ -76,13 +77,16 @@ export const createTodoSafeFlow = createNextSafeActionFlow({
           : todo,
       ),
   },
-  invalidate: ({ result }) => [
-    safeTodoInvalidation.tags.todos.list(),
-    safeTodoInvalidation.tags.todos.byId(result.id),
-    safeTodoInvalidation.paths.todos.byId(result.id),
-  ],
-  afterSuccess: ({ meta, result }) => {
-    console.debug("[mutaflow] safe action success", meta, result);
+  consistency: ({ result }) =>
+    consistency.staleWhileRevalidate({
+      tags: [
+        safeTodoInvalidation.tags.todos.list(),
+        safeTodoInvalidation.tags.todos.byId(result.id),
+      ],
+      paths: [safeTodoInvalidation.paths.todos.byId(result.id)],
+    }),
+  afterSuccess: ({ meta, result, consistency }) => {
+    console.debug("[mutaflow] safe action success", meta, result, consistency);
   },
   onError: ({ error }) => {
     if (isNextSafeActionError(error) && getNextSafeActionErrorKind(error) === "validation") {

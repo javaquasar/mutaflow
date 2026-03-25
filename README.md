@@ -52,6 +52,7 @@ Today the scaffold includes:
 - `optimistic.insert/update/remove/replace`
 - `mutaflow/next` tag and path builders
 - `createInvalidationRegistry(...)`, `defineTags(...)`, `definePaths(...)`
+- `consistency.immediate(...)`, `consistency.staleWhileRevalidate(...)`, `consistency.manual(...)`
 - `mutaflow/next-safe-action` helper API
 - `@mutaflow/devtools` timeline and inspector prototype
 - `@mutaflow/testkit` flow testing helpers
@@ -153,6 +154,21 @@ const flow = createFlow({
   onSettled: ({ cancelled }) => console.log("settled", cancelled),
 });
 ```
+
+## Consistency Presets
+
+`mutaflow/next` now provides read-your-own-writes presets on top of invalidation entries:
+
+```ts
+import { consistency } from "mutaflow/next";
+
+const preset = consistency.immediate({
+  tags: [registry.tags.todos.list()],
+  paths: [registry.paths.todos.byId(id)],
+});
+```
+
+The preset becomes part of the flow result and success events, while its invalidations are merged into the final invalidation list.
 
 ## Typed Invalidation Registry
 
@@ -258,5 +274,6 @@ The likely package evolution looks like this:
 - `@mutaflow/eslint-config`: linting presets and conventions for flow definitions
 
 More detail lives in [ECOSYSTEM_ROADMAP.md](ECOSYSTEM_ROADMAP.md).
+
 
 

@@ -1,5 +1,6 @@
 import { createFlow, optimistic } from "mutaflow";
 import {
+  consistency,
   createInvalidationRegistry,
   createServerActionAdapter,
   definePaths,
@@ -70,13 +71,16 @@ export const createTodoFlow = createFlow({
           : todo,
       ),
   },
-  invalidate: ({ result }) => [
-    todoInvalidation.tags.todos.list(),
-    todoInvalidation.tags.todos.byId(result.id),
-    todoInvalidation.paths.todos.byId(result.id),
-  ],
-  afterSuccess: ({ result, meta }) => {
-    console.debug("[mutaflow] afterSuccess", meta, result);
+  consistency: ({ result }) =>
+    consistency.immediate({
+      tags: [
+        todoInvalidation.tags.todos.list(),
+        todoInvalidation.tags.todos.byId(result.id),
+      ],
+      paths: [todoInvalidation.paths.todos.byId(result.id)],
+    }),
+  afterSuccess: ({ result, meta, consistency }) => {
+    console.debug("[mutaflow] afterSuccess", meta, result, consistency);
   },
   afterError: ({ error, meta }) => {
     console.error("[mutaflow] afterError", meta, error);

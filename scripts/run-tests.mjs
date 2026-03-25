@@ -11,6 +11,7 @@ import { runFlow } from "../packages/mutaflow/dist/core/runFlow.js";
 import { createResourceStore } from "../packages/mutaflow/dist/core/store.js";
 import { optimistic } from "../packages/mutaflow/dist/optimistic.js";
 import {
+  consistency,
   createInvalidationRegistry,
   createNextSafeActionAdapter,
   createServerActionAdapter,
@@ -583,6 +584,28 @@ const tests = [
     },
   },
   {
+    name: "consistency presets merge invalidations and expose strategy metadata",
+    run: async () => {
+      const flow = createFlow({
+        action: createServerActionAdapter(async (input) => ({ id: `todo:${input.title}`, title: input.title })),
+        invalidate: [{ kind: "tag", value: "todos.static" }],
+        consistency: ({ result }) =>
+          consistency.immediate({
+            tags: [{ kind: "tag", value: `todos.byId.${result.id}` }],
+            paths: [{ kind: "path", value: `/todos/${result.id}` }],
+          }),
+      });
+      const result = await runFlow(flow, { title: "Consistency" });
+      assert.equal(result.consistency?.strategy, "immediate");
+      assert.equal(result.consistency?.readYourOwnWrites, true);
+      assert.deepEqual(result.invalidations, [
+        { kind: "tag", value: "todos.static" },
+        { kind: "tag", value: "todos.byId.todo:Consistency" },
+        { kind: "path", value: "/todos/todo:Consistency" },
+      ]);
+    },
+  },
+  {
     name: "typed invalidation registry builds reusable tag and path helpers",
     run: async () => {
       const registry = createInvalidationRegistry({
@@ -832,6 +855,7 @@ if (failed > 0) {
 } else {
   console.log(`\nAll ${tests.length} tests passed.`);
 }
+
 
 
 

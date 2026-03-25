@@ -13,6 +13,17 @@ export type InvalidateEntry =
   | { kind: "tag"; value: string }
   | { kind: "path"; value: string };
 
+export type ConsistencyStrategy =
+  | "immediate"
+  | "stale-while-revalidate"
+  | "manual";
+
+export type ConsistencyPreset = {
+  strategy: ConsistencyStrategy;
+  readYourOwnWrites: boolean;
+  invalidations: InvalidateEntry[];
+};
+
 export type SuccessContext<TInput, TResult> = {
   input: TInput;
   result: TResult;
@@ -58,6 +69,7 @@ export type MutationEvent = {
   result?: unknown;
   error?: unknown;
   invalidations?: InvalidateEntry[];
+  consistency?: ConsistencyPreset;
   redirectTo?: string;
 };
 
@@ -141,6 +153,7 @@ export type FlowSuccessHookContext<TInput, TResult, TMeta extends FlowMeta = Flo
   FlowBaseContext<TInput, TResult, TMeta> & {
     result: TResult;
     invalidations: InvalidateEntry[];
+    consistency?: ConsistencyPreset;
     redirectTo?: string;
   };
 
@@ -156,6 +169,7 @@ export type FlowSettledHookContext<TInput, TResult, TMeta extends FlowMeta = Flo
     error?: unknown;
     cancelled: boolean;
     invalidations?: InvalidateEntry[];
+    consistency?: ConsistencyPreset;
     redirectTo?: string;
   };
 
@@ -166,6 +180,7 @@ export type FlowConfig<TInput, TResult, TMeta extends FlowMeta = FlowMeta> = {
   optimistic?: OptimisticConfig<TInput, TResult>;
   reconcile?: ReconcileConfig<TResult>;
   invalidate?: InvalidateEntry[] | ((ctx: SuccessContext<TInput, TResult>) => InvalidateEntry[]);
+  consistency?: ConsistencyPreset | ((ctx: SuccessContext<TInput, TResult>) => ConsistencyPreset);
   redirect?: string | ((ctx: SuccessContext<TInput, TResult>) => string | void);
   beforeRun?: (ctx: FlowBaseContext<TInput, TResult, TMeta>) => void | Promise<void>;
   onSuccess?: (ctx: SuccessContext<TInput, TResult>) => void | Promise<void>;
@@ -196,6 +211,7 @@ export type FlowRunResult<TResult, TMeta extends FlowMeta = FlowMeta> = {
   data?: TResult;
   error?: unknown;
   invalidations?: InvalidateEntry[];
+  consistency?: ConsistencyPreset;
   redirectTo?: string;
   optimisticTarget?: string;
   meta: TMeta;

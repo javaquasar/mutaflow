@@ -79,6 +79,19 @@ You can also use:
 - `getNextSafeActionErrorKind(error)`
 - `unwrapNextSafeActionResult(result)`
 
+## Consistency Presets
+
+`mutaflow/next` now provides strategy presets for read-your-own-writes behavior:
+
+```ts
+import { consistency } from "mutaflow/next";
+
+const preset = consistency.immediate({
+  tags: [postInvalidation.tags.posts.list()],
+  paths: [postInvalidation.paths.posts.byId(id)],
+});
+```
+
 ## Typed Invalidation Registry
 
 `mutaflow/next` can now define reusable invalidation registries:
@@ -140,5 +153,6 @@ const createPostFlow = createFlow({
 ## Status
 
 This is an early v0.1 scaffold, not a production-ready release yet.
+
 
 

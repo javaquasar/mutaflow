@@ -5,6 +5,8 @@ export {
   NextSafeActionError,
 } from "./adapters.js";
 
+import type { ConsistencyPreset, InvalidateEntry } from "../types.js";
+
 type BuilderResult = {
   kind: "tag" | "path";
   value: string;
@@ -53,8 +55,62 @@ function createBuilder(kind: "tag" | "path", segments: string[] = []): BuilderPr
   });
 }
 
+function normalizeInvalidations(entries: Array<InvalidateEntry | undefined> = []): InvalidateEntry[] {
+  return entries.filter((entry): entry is InvalidateEntry => Boolean(entry));
+}
+
+function createConsistencyPreset(
+  strategy: ConsistencyPreset["strategy"],
+  options: {
+    tags?: InvalidateEntry[];
+    paths?: InvalidateEntry[];
+    invalidate?: InvalidateEntry[];
+    readYourOwnWrites?: boolean;
+  } = {},
+): ConsistencyPreset {
+  return {
+    strategy,
+    readYourOwnWrites: options.readYourOwnWrites ?? strategy === "immediate",
+    invalidations: normalizeInvalidations([
+      ...(options.invalidate ?? []),
+      ...(options.tags ?? []),
+      ...(options.paths ?? []),
+    ]),
+  };
+}
+
 export const tags = createBuilder("tag");
 export const paths = createBuilder("path");
+
+export const consistency = {
+  immediate(options: { tags?: InvalidateEntry[]; paths?: InvalidateEntry[]; invalidate?: InvalidateEntry[] } = {}) {
+    return createConsistencyPreset("immediate", {
+      ...options,
+      readYourOwnWrites: true,
+    });
+  },
+  staleWhileRevalidate(options: { tags?: InvalidateEntry[]; paths?: InvalidateEntry[]; invalidate?: InvalidateEntry[] } = {}) {
+    return createConsistencyPreset("stale-while-revalidate", {
+      ...options,
+      readYourOwnWrites: false,
+    });
+  },
+  manual(options: { tags?: InvalidateEntry[]; paths?: InvalidateEntry[]; invalidate?: InvalidateEntry[]; readYourOwnWrites?: boolean } = {}) {
+    return createConsistencyPreset("manual", options);
+  },
+  tags(entries: InvalidateEntry[]) {
+    return createConsistencyPreset("stale-while-revalidate", {
+      tags: entries,
+      readYourOwnWrites: false,
+    });
+  },
+  paths(entries: InvalidateEntry[]) {
+    return createConsistencyPreset("immediate", {
+      paths: entries,
+      readYourOwnWrites: true,
+    });
+  },
+};
 
 export function defineTags<T extends InvalidationRegistryShape>(
   factory: (builder: typeof tags) => T,

@@ -9,6 +9,7 @@ A full App Router example for Mutaflow.
 - optimistic client-side resource state via [lib/client-store.ts](lib/client-store.ts)
 - a flow defined in [lib/flows.ts](lib/flows.ts)
 - a reusable invalidation registry built on `mutaflow/next`
+- `consistency.immediate(...)` for read-your-own-writes behavior
 - event-driven mutation tracking and a prototype devtools panel
 - initial server data hydration into the client store
 
@@ -35,4 +36,5 @@ Then open `http://localhost:3000`.
 This example uses a tiny in-memory server-side data module in [lib/data.ts](lib/data.ts) so the focus stays on Mutaflow and not on database setup.
 
 If your app uses `next-safe-action`, the corresponding Mutaflow helper API lives at `mutaflow/next-safe-action`.
+
 

@@ -5,6 +5,8 @@ export { runFlow } from "./core/runFlow.js";
 export { createResourceStore } from "./core/store.js";
 export { optimistic } from "./optimistic.js";
 export type {
+  ConsistencyPreset,
+  ConsistencyStrategy,
   ErrorContext,
   FlowAction,
   FlowActionAdapter,
