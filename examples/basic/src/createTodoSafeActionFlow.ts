@@ -30,6 +30,16 @@ export const createTodoSafeFlow = createNextSafeActionFlow({
   adapter: {
     name: "createTodoSafe",
   },
+  meta: {
+    feature: "todos",
+    source: "next-safe-action-example",
+  },
+  beforeRun: ({ meta }) => {
+    console.debug("[mutaflow] beforeRun safe action", meta);
+  },
+  middleware: [
+    async (_context, next) => next(),
+  ],
   optimistic: optimistic.insert<CreateTodoInput, Todo>({
     target: "todos:list",
     position: "start",
@@ -52,6 +62,9 @@ export const createTodoSafeFlow = createNextSafeActionFlow({
     tags.todos.list(),
     tags.todos.byId(result.id),
   ],
+  afterSuccess: ({ meta, result }) => {
+    console.debug("[mutaflow] safe action success", meta, result);
+  },
   onError: ({ error }) => {
     if (isNextSafeActionError(error) && getNextSafeActionErrorKind(error) === "validation") {
       console.warn("safe action validation failed", error.details.validationErrors);

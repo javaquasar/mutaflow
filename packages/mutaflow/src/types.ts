@@ -7,6 +7,8 @@ export type FlowStage =
   | "rolled_back"
   | "cancelled";
 
+export type FlowMeta = Record<string, unknown>;
+
 export type InvalidateEntry =
   | { kind: "tag"; value: string }
   | { kind: "path"; value: string };
@@ -50,6 +52,7 @@ export type MutationEvent = {
   flowId: string;
   attempt: number;
   stage: FlowStage;
+  meta?: FlowMeta;
   target?: string;
   input?: unknown;
   result?: unknown;
@@ -115,30 +118,78 @@ export type ReconcileConfig<TResult> = {
   onSuccess?: (current: unknown, result: TResult) => unknown;
 };
 
-export type FlowConfig<TInput, TResult> = {
+export type FlowBaseContext<TInput, TResult, TMeta extends FlowMeta = FlowMeta> = {
+  flow: FlowDefinition<TInput, TResult, TMeta>;
+  input: TInput;
+  flowId: string;
+  attempt: number;
+  signal: AbortSignal;
+  meta: TMeta;
+};
+
+export type FlowMiddlewareNext<TResult> = () => Promise<TResult>;
+
+export type FlowMiddlewareContext<TInput, TResult, TMeta extends FlowMeta = FlowMeta> =
+  FlowBaseContext<TInput, TResult, TMeta>;
+
+export type FlowMiddleware<TInput, TResult, TMeta extends FlowMeta = FlowMeta> = (
+  context: FlowMiddlewareContext<TInput, TResult, TMeta>,
+  next: FlowMiddlewareNext<TResult>,
+) => Promise<TResult>;
+
+export type FlowSuccessHookContext<TInput, TResult, TMeta extends FlowMeta = FlowMeta> =
+  FlowBaseContext<TInput, TResult, TMeta> & {
+    result: TResult;
+    invalidations: InvalidateEntry[];
+    redirectTo?: string;
+  };
+
+export type FlowErrorHookContext<TInput, TResult, TMeta extends FlowMeta = FlowMeta> =
+  FlowBaseContext<TInput, TResult, TMeta> & {
+    error: unknown;
+    cancelled: boolean;
+  };
+
+export type FlowSettledHookContext<TInput, TResult, TMeta extends FlowMeta = FlowMeta> =
+  FlowBaseContext<TInput, TResult, TMeta> & {
+    result?: TResult;
+    error?: unknown;
+    cancelled: boolean;
+    invalidations?: InvalidateEntry[];
+    redirectTo?: string;
+  };
+
+export type FlowConfig<TInput, TResult, TMeta extends FlowMeta = FlowMeta> = {
   action: FlowAction<TInput, TResult> | FlowActionAdapter<TInput, TResult>;
+  meta?: TMeta;
+  middleware?: FlowMiddleware<TInput, TResult, TMeta>[];
   optimistic?: OptimisticConfig<TInput, TResult>;
   reconcile?: ReconcileConfig<TResult>;
   invalidate?: InvalidateEntry[] | ((ctx: SuccessContext<TInput, TResult>) => InvalidateEntry[]);
   redirect?: string | ((ctx: SuccessContext<TInput, TResult>) => string | void);
+  beforeRun?: (ctx: FlowBaseContext<TInput, TResult, TMeta>) => void | Promise<void>;
   onSuccess?: (ctx: SuccessContext<TInput, TResult>) => void | Promise<void>;
+  afterSuccess?: (ctx: FlowSuccessHookContext<TInput, TResult, TMeta>) => void | Promise<void>;
   onError?: (ctx: ErrorContext<TInput>) => void | Promise<void>;
+  afterError?: (ctx: FlowErrorHookContext<TInput, TResult, TMeta>) => void | Promise<void>;
+  onSettled?: (ctx: FlowSettledHookContext<TInput, TResult, TMeta>) => void | Promise<void>;
 };
 
-export type FlowDefinition<TInput, TResult> = {
+export type FlowDefinition<TInput, TResult, TMeta extends FlowMeta = FlowMeta> = {
   kind: "mutaflow.flow";
-  config: FlowConfig<TInput, TResult>;
+  config: FlowConfig<TInput, TResult, TMeta>;
 };
 
-export type FlowRunOptions = {
+export type FlowRunOptions<TMeta extends FlowMeta = FlowMeta> = {
   store?: ResourceStore;
   events?: MutationEventStore;
   flowId?: string;
   retries?: number;
   signal?: AbortSignal;
+  meta?: Partial<TMeta> & FlowMeta;
 };
 
-export type FlowRunResult<TResult> = {
+export type FlowRunResult<TResult, TMeta extends FlowMeta = FlowMeta> = {
   flowId: string;
   attempts: number;
   cancelled: boolean;
@@ -147,22 +198,25 @@ export type FlowRunResult<TResult> = {
   invalidations?: InvalidateEntry[];
   redirectTo?: string;
   optimisticTarget?: string;
+  meta: TMeta;
 };
 
-export type UseFlowRunOptions = {
+export type UseFlowRunOptions<TMeta extends FlowMeta = FlowMeta> = {
   flowId?: string;
   retries?: number;
+  meta?: Partial<TMeta> & FlowMeta;
 };
 
-export type UseFlowOptions = {
+export type UseFlowOptions<TMeta extends FlowMeta = FlowMeta> = {
   store?: ResourceStore;
   events?: MutationEventStore;
   retries?: number;
   generateFlowId?: () => string;
+  meta?: Partial<TMeta> & FlowMeta;
 };
 
-export type UseFlowResult<TInput, TResult> = {
-  run: (input: TInput, options?: UseFlowRunOptions) => Promise<FlowRunResult<TResult>>;
+export type UseFlowResult<TInput, TResult, TMeta extends FlowMeta = FlowMeta> = {
+  run: (input: TInput, options?: UseFlowRunOptions<TMeta>) => Promise<FlowRunResult<TResult, TMeta>>;
   cancel: (flowId?: string) => void;
   cancelAll: () => void;
   pending: boolean;
@@ -173,5 +227,5 @@ export type UseFlowResult<TInput, TResult> = {
   error: unknown;
   lastResult: TResult | null;
   reset: () => void;
-  flow: FlowDefinition<TInput, TResult>;
+  flow: FlowDefinition<TInput, TResult, TMeta>;
 };

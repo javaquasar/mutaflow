@@ -48,6 +48,7 @@ Today the scaffold includes:
 - `createNextSafeActionAdapter`
 - `createNextSafeActionFlow`
 - `nextSafeAction`
+- `middleware`, `beforeRun`, `afterSuccess`, `afterError`, `onSettled`
 - `optimistic.insert/update/remove/replace`
 - `mutaflow/next` tag and path builders
 - `mutaflow/next-safe-action` helper API
@@ -121,6 +122,34 @@ const createTodoFlow = createNextSafeActionFlow({
       console.warn(error.details.validationErrors);
     }
   },
+});
+```
+
+## Lifecycle Hooks and Middleware
+
+Flows can now carry shared `meta` and expose lifecycle hooks around execution:
+- `beforeRun`
+- `afterSuccess`
+- `afterError`
+- `onSettled`
+- `middleware`
+
+```ts
+const flow = createFlow({
+  action: createTodo,
+  meta: { feature: "todos" },
+  middleware: [
+    async (context, next) => {
+      console.log("before", context.meta);
+      const result = await next();
+      console.log("after", result);
+      return result;
+    },
+  ],
+  beforeRun: ({ input }) => console.log("start", input),
+  afterSuccess: ({ result }) => console.log("success", result.id),
+  afterError: ({ error }) => console.error(error),
+  onSettled: ({ cancelled }) => console.log("settled", cancelled),
 });
 ```
 
@@ -200,3 +229,4 @@ The likely package evolution looks like this:
 - `@mutaflow/eslint-config`: linting presets and conventions for flow definitions
 
 More detail lives in [ECOSYSTEM_ROADMAP.md](ECOSYSTEM_ROADMAP.md).
+

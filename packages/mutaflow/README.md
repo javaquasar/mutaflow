@@ -79,6 +79,31 @@ You can also use:
 - `getNextSafeActionErrorKind(error)`
 - `unwrapNextSafeActionResult(result)`
 
+## Lifecycle Hooks and Middleware
+
+Flows can now carry shared `meta` and hook into the full mutation lifecycle:
+- `beforeRun`
+- `afterSuccess`
+- `afterError`
+- `onSettled`
+- `middleware`
+
+```ts
+const createPostFlow = createFlow({
+  action: createPost,
+  meta: { feature: "posts" },
+  middleware: [
+    async (context, next) => {
+      const result = await next();
+      return result;
+    },
+  ],
+  afterSuccess: ({ result }) => {
+    console.log(result.id);
+  },
+});
+```
+
 ## Exports
 
 - `mutaflow`
@@ -89,3 +114,4 @@ You can also use:
 ## Status
 
 This is an early v0.1 scaffold, not a production-ready release yet.
+

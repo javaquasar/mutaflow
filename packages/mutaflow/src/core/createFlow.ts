@@ -1,8 +1,8 @@
-import type { FlowConfig, FlowDefinition } from "../types.js";
+import type { FlowConfig, FlowDefinition, FlowMeta } from "../types.js";
 
-export function createFlow<TInput, TResult>(
-  config: FlowConfig<TInput, TResult>,
-): FlowDefinition<TInput, TResult> {
+export function createFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta>(
+  config: FlowConfig<TInput, TResult, TMeta>,
+): FlowDefinition<TInput, TResult, TMeta> {
   return {
     kind: "mutaflow.flow",
     config,

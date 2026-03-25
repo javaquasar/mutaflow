@@ -18,6 +18,7 @@ This example shows the intended ergonomic direction for Mutaflow using real file
 - `createServerActionAdapter(...)` for wrapping plain server actions
 - `createNextSafeActionFlow(...)` for a shorter `next-safe-action` setup
 - `@mutaflow/testkit` for flow assertions and event/resource checks
+- flow `meta`, `middleware`, `beforeRun`, `afterSuccess`, `afterError`, and `onSettled`
 - `createResourceStore(...)` with a real `todos:list` target
 - `createMutationEventStore(...)` as the base for future devtools
 - `optimistic.insert(...)` for list-first optimistic behavior
@@ -57,3 +58,4 @@ import { createTestStore, expectEvents, expectReconciled, runFlowAndCollectEvent
 
 This example is intentionally small and framework-light.
 It exists to document the desired API direction, not to be a full runnable app yet.
+

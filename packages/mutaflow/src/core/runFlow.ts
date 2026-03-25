@@ -1,13 +1,18 @@
 import { resolveFlowAction } from "./action.js";
 import type {
+  FlowBaseContext,
   FlowDefinition,
+  FlowMeta,
+  FlowMiddleware,
   FlowRunOptions,
   FlowRunResult,
+  FlowSettledHookContext,
+  FlowSuccessHookContext,
   InvalidateEntry,
   MutationEvent,
 } from "../types.js";
 
-function getFlowName<TInput, TResult>(flow: FlowDefinition<TInput, TResult>): string {
+function getFlowName<TInput, TResult, TMeta extends FlowMeta>(flow: FlowDefinition<TInput, TResult, TMeta>): string {
   const action = flow.config.action;
 
   if (typeof action === "function") {
@@ -17,8 +22,8 @@ function getFlowName<TInput, TResult>(flow: FlowDefinition<TInput, TResult>): st
   return action.name || action.run.name || action.kind || "anonymousFlow";
 }
 
-function createEvent<TInput, TResult>(
-  flow: FlowDefinition<TInput, TResult>,
+function createEvent<TInput, TResult, TMeta extends FlowMeta>(
+  flow: FlowDefinition<TInput, TResult, TMeta>,
   event: Omit<MutationEvent, "flowName" | "timestamp">,
 ): MutationEvent {
   return {
@@ -28,8 +33,8 @@ function createEvent<TInput, TResult>(
   };
 }
 
-function resolveInvalidations<TInput, TResult>(
-  flow: FlowDefinition<TInput, TResult>,
+function resolveInvalidations<TInput, TResult, TMeta extends FlowMeta>(
+  flow: FlowDefinition<TInput, TResult, TMeta>,
   input: TInput,
   result: TResult,
 ): InvalidateEntry[] {
@@ -44,8 +49,8 @@ function resolveInvalidations<TInput, TResult>(
     : invalidate;
 }
 
-function resolveRedirect<TInput, TResult>(
-  flow: FlowDefinition<TInput, TResult>,
+function resolveRedirect<TInput, TResult, TMeta extends FlowMeta>(
+  flow: FlowDefinition<TInput, TResult, TMeta>,
   input: TInput,
   result: TResult,
 ): string | undefined {
@@ -74,11 +79,46 @@ function createAbortError(): Error {
   return error;
 }
 
-export async function runFlow<TInput, TResult>(
-  flow: FlowDefinition<TInput, TResult>,
+function mergeMeta<TMeta extends FlowMeta>(
+  flowMeta: TMeta | undefined,
+  runMeta: Record<string, unknown> | undefined,
+): TMeta {
+  return {
+    ...(flowMeta ?? {}),
+    ...(runMeta ?? {}),
+  } as TMeta;
+}
+
+async function runWithMiddleware<TInput, TResult, TMeta extends FlowMeta>(
+  middleware: FlowMiddleware<TInput, TResult, TMeta>[],
+  context: FlowBaseContext<TInput, TResult, TMeta>,
+  action: () => Promise<TResult>,
+): Promise<TResult> {
+  let index = -1;
+
+  async function dispatch(currentIndex: number): Promise<TResult> {
+    if (currentIndex <= index) {
+      throw new Error("Mutaflow middleware cannot call next() multiple times.");
+    }
+
+    index = currentIndex;
+    const current = middleware[currentIndex];
+
+    if (!current) {
+      return action();
+    }
+
+    return current(context, () => dispatch(currentIndex + 1));
+  }
+
+  return dispatch(0);
+}
+
+export async function runFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta>(
+  flow: FlowDefinition<TInput, TResult, TMeta>,
   input: TInput,
-  options: FlowRunOptions = {},
-): Promise<FlowRunResult<TResult>> {
+  options: FlowRunOptions<TMeta> = {},
+): Promise<FlowRunResult<TResult, TMeta>> {
   const action = resolveFlowAction(flow.config.action);
   const { store, events, signal, retries = 0 } = options;
   const flowId = options.flowId ?? createFlowId();
@@ -88,6 +128,7 @@ export async function runFlow<TInput, TResult>(
     store && optimisticTarget && flow.config.optimistic?.apply,
   );
   const controller = new AbortController();
+  const meta = mergeMeta(flow.config.meta, options.meta);
 
   if (signal) {
     if (signal.aborted) {
@@ -100,11 +141,25 @@ export async function runFlow<TInput, TResult>(
   let optimisticSnapshot: unknown;
   let attempts = 0;
 
+  const initialContext: FlowBaseContext<TInput, TResult, TMeta> = {
+    flow,
+    input,
+    flowId,
+    attempt: 1,
+    signal: controller.signal,
+    meta,
+  };
+
+  if (flow.config.beforeRun) {
+    await flow.config.beforeRun(initialContext);
+  }
+
   events?.emit(createEvent(flow, {
     type: "flow:start",
     flowId,
     attempt: 1,
     stage: "running",
+    meta,
     input,
     target: optimisticTarget,
   }));
@@ -121,6 +176,7 @@ export async function runFlow<TInput, TResult>(
       flowId,
       attempt: 1,
       stage: "optimistic",
+      meta,
       input,
       target: optimisticTarget,
     }));
@@ -129,16 +185,29 @@ export async function runFlow<TInput, TResult>(
   while (attempts <= retries) {
     attempts += 1;
 
+    const attemptContext: FlowBaseContext<TInput, TResult, TMeta> = {
+      flow,
+      input,
+      flowId,
+      attempt: attempts,
+      signal: controller.signal,
+      meta,
+    };
+
     try {
       if (controller.signal.aborted) {
         throw createAbortError();
       }
 
-      const result = await action(input, {
-        flowId,
-        attempt: attempts,
-        signal: controller.signal,
-      });
+      const result = await runWithMiddleware(
+        flow.config.middleware ?? [],
+        attemptContext,
+        () => action(input, {
+          flowId,
+          attempt: attempts,
+          signal: controller.signal,
+        }),
+      );
       const invalidations = resolveInvalidations(flow, input, result);
       const redirectTo = resolveRedirect(flow, input, result);
 
@@ -151,6 +220,7 @@ export async function runFlow<TInput, TResult>(
           flowId,
           attempt: attempts,
           stage: "success",
+          meta,
           input,
           result,
           target: reconcileTarget,
@@ -167,6 +237,7 @@ export async function runFlow<TInput, TResult>(
           flowId,
           attempt: attempts,
           stage: "success",
+          meta,
           input,
           result,
           target: optimisticTarget,
@@ -175,17 +246,37 @@ export async function runFlow<TInput, TResult>(
 
       await flow.config.onSuccess?.({ input, result });
 
+      const successContext: FlowSuccessHookContext<TInput, TResult, TMeta> = {
+        ...attemptContext,
+        result,
+        invalidations,
+        redirectTo,
+      };
+
+      await flow.config.afterSuccess?.(successContext);
+
       events?.emit(createEvent(flow, {
         type: "flow:success",
         flowId,
         attempt: attempts,
         stage: "success",
+        meta,
         input,
         result,
         target: reconcileTarget ?? optimisticTarget,
         invalidations,
         redirectTo,
       }));
+
+      const settledContext: FlowSettledHookContext<TInput, TResult, TMeta> = {
+        ...attemptContext,
+        result,
+        cancelled: false,
+        invalidations,
+        redirectTo,
+      };
+
+      await flow.config.onSettled?.(settledContext);
 
       return {
         flowId,
@@ -195,6 +286,7 @@ export async function runFlow<TInput, TResult>(
         invalidations,
         redirectTo,
         optimisticTarget,
+        meta,
       };
     } catch (caughtError) {
       const cancelled = controller.signal.aborted || isAbortError(caughtError);
@@ -206,6 +298,7 @@ export async function runFlow<TInput, TResult>(
           flowId,
           attempt: attempts,
           stage: "running",
+          meta,
           input,
           error: caughtError,
           target: optimisticTarget,
@@ -229,6 +322,7 @@ export async function runFlow<TInput, TResult>(
           flowId,
           attempt: attempts,
           stage: cancelled ? "cancelled" : "rolled_back",
+          meta,
           input,
           error: caughtError,
           target: optimisticTarget,
@@ -241,6 +335,7 @@ export async function runFlow<TInput, TResult>(
           flowId,
           attempt: attempts,
           stage: "cancelled",
+          meta,
           input,
           error: caughtError,
           target: optimisticTarget,
@@ -248,6 +343,11 @@ export async function runFlow<TInput, TResult>(
       }
 
       await flow.config.onError?.({ input, error: caughtError });
+      await flow.config.afterError?.({
+        ...attemptContext,
+        error: caughtError,
+        cancelled,
+      });
 
       if (!cancelled) {
         events?.emit(createEvent(flow, {
@@ -255,11 +355,18 @@ export async function runFlow<TInput, TResult>(
           flowId,
           attempt: attempts,
           stage: flow.config.optimistic ? "rolled_back" : "error",
+          meta,
           input,
           error: caughtError,
           target: optimisticTarget,
         }));
       }
+
+      await flow.config.onSettled?.({
+        ...attemptContext,
+        error: caughtError,
+        cancelled,
+      });
 
       return {
         flowId,
@@ -267,6 +374,7 @@ export async function runFlow<TInput, TResult>(
         cancelled,
         error: caughtError,
         optimisticTarget,
+        meta,
       };
     }
   }
@@ -276,6 +384,7 @@ export async function runFlow<TInput, TResult>(
     attempts,
     cancelled: false,
     optimisticTarget,
+    meta,
   };
 }
 

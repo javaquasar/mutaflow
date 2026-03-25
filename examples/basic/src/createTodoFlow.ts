@@ -17,6 +17,21 @@ export async function createTodo(input: CreateTodoInput): Promise<{ id: string; 
 
 export const createTodoFlow = createFlow({
   action: createServerActionAdapter(createTodo),
+  meta: {
+    feature: "todos",
+    source: "basic-example",
+  },
+  middleware: [
+    async (context, next) => {
+      console.debug("[mutaflow] middleware before", context.meta, context.input);
+      const result = await next();
+      console.debug("[mutaflow] middleware after", result);
+      return result;
+    },
+  ],
+  beforeRun: ({ meta, input }) => {
+    console.debug("[mutaflow] beforeRun", meta, input);
+  },
   optimistic: optimistic.insert<CreateTodoInput, Todo>({
     target: "todos:list",
     position: "start",
@@ -39,5 +54,14 @@ export const createTodoFlow = createFlow({
     tags.todos.list(),
     tags.todos.byId(result.id),
   ],
+  afterSuccess: ({ result, meta }) => {
+    console.debug("[mutaflow] afterSuccess", meta, result);
+  },
+  afterError: ({ error, meta }) => {
+    console.error("[mutaflow] afterError", meta, error);
+  },
+  onSettled: ({ cancelled, meta }) => {
+    console.debug("[mutaflow] onSettled", meta, { cancelled });
+  },
   redirect: ({ result }) => `/todos/${result.id}`,
 });

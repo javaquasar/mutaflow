@@ -250,6 +250,86 @@ const tests = [
     },
   },
   {
+    name: "runFlow executes middleware and lifecycle hooks with merged meta on success",
+    run: async () => {
+      const calls = [];
+      const flow = createFlow({
+        action: createServerActionAdapter(async (input) => ({ id: `todo:${input.title}`, title: input.title })),
+        meta: {
+          feature: "todos",
+        },
+        beforeRun: ({ meta, input }) => {
+          calls.push(`beforeRun:${meta.feature}:${meta.requestId}:${input.title}`);
+        },
+        middleware: [
+          async (context, next) => {
+            calls.push(`middleware:before:${context.attempt}:${context.meta.feature}:${context.meta.requestId}`);
+            const result = await next();
+            calls.push(`middleware:after:${result.id}`);
+            return result;
+          },
+        ],
+        afterSuccess: ({ result, meta }) => {
+          calls.push(`afterSuccess:${meta.feature}:${meta.requestId}:${result.id}`);
+        },
+        onSettled: ({ cancelled, meta }) => {
+          calls.push(`onSettled:${meta.feature}:${meta.requestId}:${cancelled}`);
+        },
+      });
+      const result = await runFlow(flow, { title: "Hooks" }, { meta: { requestId: "req-1" } });
+      assert.deepEqual(calls, [
+        "beforeRun:todos:req-1:Hooks",
+        "middleware:before:1:todos:req-1",
+        "middleware:after:todo:Hooks",
+        "afterSuccess:todos:req-1:todo:Hooks",
+        "onSettled:todos:req-1:false",
+      ]);
+      assert.deepEqual(result.meta, { feature: "todos", requestId: "req-1" });
+    },
+  },
+  {
+    name: "runFlow executes afterError and onSettled hooks on failure",
+    run: async () => {
+      const calls = [];
+      const flow = createFlow({
+        action: createServerActionAdapter(async function breakFlow() {
+          throw new Error("boom");
+        }),
+        meta: {
+          feature: "todos",
+        },
+        beforeRun: ({ meta }) => {
+          calls.push(`beforeRun:${meta.feature}`);
+        },
+        middleware: [
+          async (context, next) => {
+            calls.push(`middleware:before:${context.attempt}`);
+            try {
+              return await next();
+            } finally {
+              calls.push(`middleware:finally:${context.attempt}`);
+            }
+          },
+        ],
+        afterError: ({ cancelled, meta, error }) => {
+          calls.push(`afterError:${meta.feature}:${cancelled}:${error instanceof Error ? error.message : "unknown"}`);
+        },
+        onSettled: ({ cancelled, meta, error }) => {
+          calls.push(`onSettled:${meta.feature}:${cancelled}:${error instanceof Error ? error.message : "unknown"}`);
+        },
+      });
+      const result = await runFlow(flow, { title: "Broken" });
+      assert.equal(result.cancelled, false);
+      assert.deepEqual(calls, [
+        "beforeRun:todos",
+        "middleware:before:1",
+        "middleware:finally:1",
+        "afterError:todos:false:boom",
+        "onSettled:todos:false:boom",
+      ]);
+    },
+  },
+  {
     name: "testkit creates a reusable store wrapper around resources and events",
     run: async () => {
       const testStore = createTestStore({
@@ -728,5 +808,6 @@ if (failed > 0) {
 } else {
   console.log(`\nAll ${tests.length} tests passed.`);
 }
+
 
 

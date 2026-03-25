@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { runFlow } from "../core/runFlow.js";
 import type {
   FlowDefinition,
+  FlowMeta,
   FlowStage,
   UseFlowOptions,
   UseFlowResult,
@@ -13,10 +14,10 @@ function defaultFlowId() {
   return `flow_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function useFlow<TInput, TResult>(
-  flow: FlowDefinition<TInput, TResult>,
-  options: UseFlowOptions = {},
-): UseFlowResult<TInput, TResult> {
+export function useFlow<TInput, TResult, TMeta extends FlowMeta = FlowMeta>(
+  flow: FlowDefinition<TInput, TResult, TMeta>,
+  options: UseFlowOptions<TMeta> = {},
+): UseFlowResult<TInput, TResult, TMeta> {
   const controllersRef = useRef(new Map<string, AbortController>());
   const [stage, setStage] = useState<FlowStage>("idle");
   const [error, setError] = useState<unknown>(null);
@@ -29,7 +30,7 @@ export function useFlow<TInput, TResult>(
     setActiveFlowIds((current) => current.filter((id) => id !== flowId));
   }
 
-  async function run(input: TInput, runOptions: UseFlowRunOptions = {}) {
+  async function run(input: TInput, runOptions: UseFlowRunOptions<TMeta> = {}) {
     setError(null);
 
     const flowId = runOptions.flowId ?? options.generateFlowId?.() ?? defaultFlowId();
@@ -49,6 +50,7 @@ export function useFlow<TInput, TResult>(
       flowId,
       retries: runOptions.retries ?? options.retries,
       signal: controller.signal,
+      meta: runOptions.meta ?? options.meta,
     });
 
     removeFlow(flowId);
