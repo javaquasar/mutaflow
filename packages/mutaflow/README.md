@@ -1,14 +1,16 @@
 # mutaflow
 
-Mutaflow is a mutation orchestration library for Next.js Server Actions.
+[![CI](https://github.com/javaquasar/mutaflow/actions/workflows/ci.yml/badge.svg)](https://github.com/javaquasar/mutaflow/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-It focuses on the layer after an action is already callable:
-- optimistic updates
-- rollback
-- reconciliation
-- invalidation metadata
-- redirect metadata
-- mutation lifecycle state
+Mutation orchestration for Next.js Server Actions.
+
+Mutaflow helps with the layer after an action already exists:
+- optimistic UI
+- rollback and reconcile
+- invalidation and consistency
+- mutation lifecycle hooks and middleware
+- Next cache integration
 
 ## Install
 
@@ -16,94 +18,13 @@ It focuses on the layer after an action is already callable:
 npm install mutaflow
 ```
 
-## Current API Scaffold
+## Quick Start
 
 ```ts
 import { createFlow, optimistic } from "mutaflow";
-import { useFlow } from "mutaflow/react";
-import { tags } from "mutaflow/next";
+import { consistency, createInvalidationRegistry, definePaths, defineTags } from "mutaflow/next";
 
-const createPostFlow = createFlow({
-  action: createPost,
-  optimistic: optimistic.insert({
-    target: "posts:list",
-    item: (input) => ({
-      id: `temp:${crypto.randomUUID()}`,
-      title: input.title,
-      pending: true,
-    }),
-    position: "start",
-  }),
-  invalidate: ({ result }) => [
-    tags.posts.list(),
-    tags.posts.byId(result.id),
-  ],
-});
-
-function CreatePostButton() {
-  const flow = useFlow(createPostFlow);
-
-  return (
-    <button disabled={flow.pending} onClick={() => flow.run({ title: "Hello" })}>
-      Create
-    </button>
-  );
-}
-```
-
-## next-safe-action helper API
-
-If you use `next-safe-action`, Mutaflow now exposes a dedicated helper layer:
-
-```ts
-import { optimistic } from "mutaflow";
-import { createNextSafeActionFlow } from "mutaflow/next-safe-action";
-
-const createPostFlow = createNextSafeActionFlow({
-  action: createPostAction,
-  optimistic: optimistic.insert({
-    target: "posts:list",
-    item: (input) => ({
-      id: `temp:${input.title}`,
-      title: input.title,
-      pending: true,
-    }),
-  }),
-});
-```
-
-You can also use:
-- `nextSafeAction(action)`
-- `createNextSafeActionAdapter(action)`
-- `isNextSafeActionError(error)`
-- `getNextSafeActionErrorKind(error)`
-- `unwrapNextSafeActionResult(result)`
-
-## Consistency Presets
-
-`mutaflow/next` now provides strategy presets for read-your-own-writes behavior:
-
-```ts
-import { consistency } from "mutaflow/next";
-
-const preset = consistency.immediate({
-  tags: [postInvalidation.tags.posts.list()],
-  paths: [postInvalidation.paths.posts.byId(id)],
-});
-```
-
-## Typed Invalidation Registry
-
-`mutaflow/next` can now define reusable invalidation registries:
-
-```ts
-import {
-  createInvalidationRegistry,
-  definePaths,
-  defineTags,
-} from "mutaflow/next";
-
-const postInvalidation = createInvalidationRegistry({
+const registry = createInvalidationRegistry({
   tags: defineTags((tags) => ({
     posts: {
       list: () => tags.posts.list(),
@@ -116,49 +37,71 @@ const postInvalidation = createInvalidationRegistry({
     },
   })),
 });
-```
 
-## Lifecycle Hooks and Middleware
-
-Flows can now carry shared `meta` and hook into the full mutation lifecycle:
-- `beforeRun`
-- `afterSuccess`
-- `afterError`
-- `onSettled`
-- `middleware`
-
-```ts
 const createPostFlow = createFlow({
   action: createPost,
-  meta: { feature: "posts" },
-  middleware: [
-    async (context, next) => {
-      const result = await next();
-      return result;
-    },
-  ],
-  afterSuccess: ({ result }) => {
-    console.log(result.id);
-  },
+  optimistic: optimistic.insert({
+    target: "posts:list",
+    item: (input) => ({
+      id: `temp:${input.title}`,
+      title: input.title,
+      pending: true,
+    }),
+  }),
+  consistency: ({ result }) =>
+    consistency.immediate({
+      tags: [registry.tags.posts.list(), registry.tags.posts.byId(result.id)],
+      paths: [registry.paths.posts.byId(result.id)],
+    }),
 });
 ```
 
-## next/server helpers
+## Why Mutaflow
 
-Mutaflow now provides a server-side bridge for real Next cache lifecycle helpers:
+Mutaflow is aimed at teams that like Server Actions but do not want mutation logic to dissolve into ad hoc glue code.
 
-```ts
-import { revalidatePath, revalidateTag, updateTag } from "next/cache";
-import { createNextServerHelpers } from "mutaflow/next/server";
+It gives one place to describe:
+- optimistic apply
+- rollback
+- reconcile
+- invalidation
+- consistency policy
+- retries and cancellation
+- lifecycle hooks
 
-const nextServer = createNextServerHelpers({
-  revalidateTag,
-  updateTag,
-  revalidatePath,
-});
-```
+## Visuals
 
-## Exports
+### Devtools Overview
+
+![Mutaflow Devtools Overview](../../docs/assets/devtools-overview.svg)
+
+### Devtools Inspector
+
+![Mutaflow Devtools Inspector](../../docs/assets/devtools-inspector.svg)
+
+## Comparison
+
+### Mutaflow vs `next-safe-action`
+
+`next-safe-action` helps define and invoke safe actions.
+
+Mutaflow helps orchestrate the mutation lifecycle after the action exists.
+
+Use Mutaflow when you need:
+- optimistic mutations
+- rollback and reconcile
+- invalidation and consistency
+- lifecycle hooks
+- mutation devtools
+- mutation test helpers
+
+### Mutaflow vs Handwritten Server Action Glue
+
+Handwritten glue gives total freedom, but usually spreads mutation behavior across multiple places.
+
+Mutaflow centralizes that behavior in flow definitions and gives you a more inspectable system.
+
+## Key Surfaces
 
 - `mutaflow`
 - `mutaflow/react`
@@ -166,10 +109,11 @@ const nextServer = createNextServerHelpers({
 - `mutaflow/next/server`
 - `mutaflow/next-safe-action`
 
+## Ecosystem
+
+- `@mutaflow/devtools`
+- `@mutaflow/testkit`
+
 ## Status
 
-This is an early v0.1 scaffold, not a production-ready release yet.
-
-
-
-
+`v0.1.0` is positioned as the first serious early-adopter release, not a final stable API.
