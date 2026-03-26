@@ -53,6 +53,7 @@ Today the scaffold includes:
 - `mutaflow/next` tag and path builders
 - `createInvalidationRegistry(...)`, `defineTags(...)`, `definePaths(...)`
 - `consistency.immediate(...)`, `consistency.staleWhileRevalidate(...)`, `consistency.manual(...)`
+- `mutaflow/next/server` helpers for `revalidateTag`, `updateTag`, and `revalidatePath`
 - `mutaflow/next-safe-action` helper API
 - `@mutaflow/devtools` summary panel, grouped timeline, filters, and inspector
 - `@mutaflow/testkit` flow testing helpers
@@ -198,6 +199,32 @@ const todoInvalidation = createInvalidationRegistry({
 
 That lets flows reuse named invalidations instead of rebuilding string helpers inline.
 
+## Next Server Helpers
+
+`mutaflow/next/server` now bridges consistency presets into real Next cache lifecycle helpers:
+- `createNextServerHelpers(...)`
+- `applyNextServerConsistency(...)`
+- `applyNextInvalidations(...)`
+
+```ts
+import { revalidatePath, revalidateTag, updateTag } from "next/cache";
+import { consistency } from "mutaflow/next";
+import { createNextServerHelpers } from "mutaflow/next/server";
+
+const nextServer = createNextServerHelpers({
+  revalidateTag,
+  updateTag,
+  revalidatePath,
+});
+
+await nextServer.applyConsistency(
+  consistency.immediate({
+    tags: [registry.tags.todos.list()],
+    paths: [registry.paths.todos.byId(id)],
+  }),
+);
+```
+
 ## Testkit Direction
 
 `@mutaflow/testkit` is the first ecosystem package focused on reliability.
@@ -269,11 +296,12 @@ GitHub Actions workflows live in [.github/workflows](.github/workflows).
 The likely package evolution looks like this:
 - `mutaflow`: the main runtime and public API
 - `@mutaflow/devtools`: lifecycle inspection, grouping, filters, and debugging
-- `@mutaflow/testkit`: testing helpers for optimistic flows
+- `@mutaflow/testkit`: testing helpers for optimistic flows, consistency, invalidations, and summaries
 - `@mutaflow/example-utils`: shared example helpers and demo fixtures
 - `@mutaflow/eslint-config`: linting presets and conventions for flow definitions
 
 More detail lives in [ECOSYSTEM_ROADMAP.md](ECOSYSTEM_ROADMAP.md).
+
 
 
 

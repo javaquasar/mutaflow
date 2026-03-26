@@ -12,8 +12,12 @@ npm install mutaflow @mutaflow/testkit
 
 - `createTestStore(...)`
 - `runFlowAndCollectEvents(...)`
+- `recordFlow(...)`
 - `expectEvents(...)`
 - `expectResource(...)`
+- `expectInvalidations(...)`
+- `expectConsistency(...)`
+- `expectSummary(...)`
 - `expectOptimisticState(...)`
 - `expectRollback(...)`
 - `expectReconciled(...)`
@@ -25,6 +29,7 @@ import { optimistic } from "mutaflow";
 import { createFlow } from "mutaflow";
 import {
   createTestStore,
+  expectConsistency,
   expectEvents,
   expectReconciled,
   runFlowAndCollectEvents,
@@ -35,6 +40,11 @@ const flow = createFlow({
   optimistic: optimistic.insert({
     target: "todos:list",
     item: (input) => ({ id: `temp:${input.title}`, title: input.title, pending: true }),
+  }),
+  consistency: () => ({
+    strategy: "immediate",
+    readYourOwnWrites: true,
+    invalidations: [{ kind: "tag", value: "todos.list" }],
   }),
   reconcile: {
     target: "todos:list",
@@ -54,6 +64,7 @@ const testStore = createTestStore({
 const run = await runFlowAndCollectEvents(flow, { title: "Ship" }, testStore);
 
 expectEvents(run, ["flow:start", "flow:optimistic-applied", "flow:reconciled", "flow:success"]);
+expectConsistency(run, { strategy: "immediate", readYourOwnWrites: true });
 expectReconciled(run, "todos:list", [
   { id: "todo:Ship", title: "Ship", pending: false },
 ]);

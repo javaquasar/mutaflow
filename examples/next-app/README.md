@@ -6,6 +6,7 @@ A full App Router example for Mutaflow.
 
 - real Next.js App Router structure
 - a real server action in [app/actions.ts](app/actions.ts)
+- `mutaflow/next/server` applied with real `next/cache` helpers
 - optimistic client-side resource state via [lib/client-store.ts](lib/client-store.ts)
 - a flow defined in [lib/flows.ts](lib/flows.ts)
 - a reusable invalidation registry built on `mutaflow/next`
@@ -36,3 +37,4 @@ Then open `http://localhost:3000`.
 This example uses a tiny in-memory server-side data module in [lib/data.ts](lib/data.ts) so the focus stays on Mutaflow and not on database setup.
 
 If your app uses `next-safe-action`, the corresponding Mutaflow helper API lives at `mutaflow/next-safe-action`.
+

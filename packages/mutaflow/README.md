@@ -143,16 +143,33 @@ const createPostFlow = createFlow({
 });
 ```
 
+## next/server helpers
+
+Mutaflow now provides a server-side bridge for real Next cache lifecycle helpers:
+
+```ts
+import { revalidatePath, revalidateTag, updateTag } from "next/cache";
+import { createNextServerHelpers } from "mutaflow/next/server";
+
+const nextServer = createNextServerHelpers({
+  revalidateTag,
+  updateTag,
+  revalidatePath,
+});
+```
+
 ## Exports
 
 - `mutaflow`
 - `mutaflow/react`
 - `mutaflow/next`
+- `mutaflow/next/server`
 - `mutaflow/next-safe-action`
 
 ## Status
 
 This is an early v0.1 scaffold, not a production-ready release yet.
+
 
 
 

@@ -2,9 +2,11 @@ import {
   createMutationEventStore,
   createResourceStore,
   runFlow,
+  type ConsistencyPreset,
   type FlowDefinition,
   type FlowRunOptions,
   type FlowRunResult,
+  type InvalidateEntry,
   type MutationEvent,
   type MutationEventStore,
   type MutationEventType,
@@ -28,6 +30,14 @@ export type RunFlowAndCollectEventsResult<TResult> = {
   resourceSnapshot: Record<string, unknown>;
   eventList: MutationEvent[];
   eventTypes: MutationEventType[];
+};
+
+export type MutationSummary = {
+  total: number;
+  success: number;
+  error: number;
+  cancelled: number;
+  retries: number;
 };
 
 export function createTestStore(initialState: Record<string, unknown> = {}): MutaflowTestStore {
@@ -82,6 +92,8 @@ export async function runFlowAndCollectEvents<TInput, TResult>(
   };
 }
 
+export const recordFlow = runFlowAndCollectEvents;
+
 export function expectEvents(
   source: MutationEvent[] | MutationEventStore | RunFlowAndCollectEventsResult<unknown> | MutaflowTestStore,
   expectedTypes: MutationEventType[],
@@ -95,6 +107,53 @@ export function expectResource(
   expected: unknown,
 ) {
   assertDeepEqual(readResource(source, target), expected, `Expected resource '${target}' to match.`);
+}
+
+export function expectInvalidations(
+  source: RunFlowAndCollectEventsResult<unknown> | FlowRunResult<unknown>,
+  expected: InvalidateEntry[],
+) {
+  const invalidations = isRunCollectionResult(source)
+    ? source.result.invalidations ?? []
+    : source.invalidations ?? [];
+  assertDeepEqual(invalidations, expected, "Expected invalidations to match.");
+}
+
+export function expectConsistency(
+  source: RunFlowAndCollectEventsResult<unknown> | FlowRunResult<unknown>,
+  expected: Partial<ConsistencyPreset>,
+) {
+  const consistency = isRunCollectionResult(source)
+    ? source.result.consistency
+    : source.consistency;
+  assertTruthy(consistency, "Expected flow consistency metadata to be present.");
+  const resolvedConsistency = consistency as ConsistencyPreset;
+  const comparable = {
+    strategy: resolvedConsistency.strategy,
+    readYourOwnWrites: resolvedConsistency.readYourOwnWrites,
+    invalidations: resolvedConsistency.invalidations,
+  };
+  const expectedComparable = {
+    strategy: expected.strategy ?? comparable.strategy,
+    readYourOwnWrites: expected.readYourOwnWrites ?? comparable.readYourOwnWrites,
+    invalidations: expected.invalidations ?? comparable.invalidations,
+  };
+  assertDeepEqual(comparable, expectedComparable, "Expected consistency metadata to match.");
+}
+
+export function expectSummary(
+  source: MutationEvent[] | MutationEventStore | RunFlowAndCollectEventsResult<unknown> | MutaflowTestStore,
+  expected: Partial<MutationSummary>,
+) {
+  const summary = summarizeEvents(readEvents(source));
+  const comparable = {
+    total: expected.total ?? summary.total,
+    success: expected.success ?? summary.success,
+    error: expected.error ?? summary.error,
+    cancelled: expected.cancelled ?? summary.cancelled,
+    retries: expected.retries ?? summary.retries,
+  };
+  assertDeepEqual(summary, comparable, "Expected mutation summary to match.");
 }
 
 export function expectOptimisticState(
@@ -123,6 +182,16 @@ export function expectReconciled(
     throw new Error("Expected flow result to be successful for reconcile assertion.");
   }
   expectResource(source, target, expected);
+}
+
+export function summarizeEvents(events: MutationEvent[]): MutationSummary {
+  return {
+    total: events.length,
+    success: events.filter((event) => event.type === "flow:success").length,
+    error: events.filter((event) => event.type === "flow:error").length,
+    cancelled: events.filter((event) => event.type === "flow:cancelled").length,
+    retries: events.filter((event) => event.type === "flow:retrying").length,
+  };
 }
 
 function assertTruthy(value: unknown, message: string) {
@@ -205,4 +274,5 @@ function readResource(
 
   return source[target];
 }
+
 

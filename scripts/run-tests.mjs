@@ -28,6 +28,11 @@ import {
   nextSafeAction,
   unwrapNextSafeActionResult,
 } from "../packages/mutaflow/dist/next-safe-action.js";
+import {
+  applyNextInvalidations,
+  applyNextServerConsistency,
+  createNextServerHelpers,
+} from "../packages/mutaflow/dist/next/server.js";
 import { useFlow } from "../packages/mutaflow/dist/react/useFlow.js";
 import { useFlowState } from "../packages/mutaflow/dist/react/useFlowState.js";
 import { useMutationEvents } from "../packages/mutaflow/dist/react/useMutationEvents.js";
@@ -40,11 +45,15 @@ import {
 } from "../packages/devtools/dist/index.js";
 import {
   createTestStore,
+  expectConsistency,
   expectEvents,
+  expectInvalidations,
   expectOptimisticState,
   expectReconciled,
   expectResource,
   expectRollback,
+  expectSummary,
+  recordFlow,
   runFlowAndCollectEvents,
 } from "../packages/testkit/dist/index.js";
 
@@ -339,6 +348,21 @@ const tests = [
     },
   },
   {
+    name: "testkit asserts consistency, invalidations, summaries, and recordFlow aliases",
+    run: async () => {
+      const flow = createFlow({
+        action: createServerActionAdapter(async (input) => ({ id: `todo:${input.title}`, title: input.title })),
+        consistency: consistency.immediate({
+          tags: [{ kind: "tag", value: "todos.list" }],
+        }),
+      });
+      const run = await recordFlow(flow, { title: "Record" });
+      expectConsistency(run, { strategy: "immediate", readYourOwnWrites: true });
+      expectInvalidations(run, [{ kind: "tag", value: "todos.list" }]);
+      expectSummary(run, { total: 2, success: 1, retries: 0 });
+    },
+  },
+  {
     name: "testkit creates a reusable store wrapper around resources and events",
     run: async () => {
       const testStore = createTestStore({
@@ -586,6 +610,46 @@ const tests = [
         { id: "1", title: "Updated", completed: true },
         { id: "2", title: "Second", completed: false },
       ]);
+    },
+  },
+  {
+    name: "next/server helpers apply consistency presets through cache bindings",
+    run: async () => {
+      const calls = [];
+      const bindings = {
+        revalidateTag: async (tag, profile) => calls.push(`revalidateTag:${tag}:${profile ?? "none"}`),
+        updateTag: async (tag) => calls.push(`updateTag:${tag}`),
+        revalidatePath: async (path) => calls.push(`revalidatePath:${path}`),
+      };
+      const preset = consistency.immediate({
+        tags: [{ kind: "tag", value: "todos.list" }],
+        paths: [{ kind: "path", value: "/todos/1" }],
+      });
+      const summary = await applyNextServerConsistency(preset, bindings);
+      assert.deepEqual(calls, [
+        "updateTag:todos.list",
+        "revalidatePath:/todos/1",
+      ]);
+      assert.deepEqual(summary.updatedTags, ["todos.list"]);
+      assert.deepEqual(summary.revalidatedPaths, ["/todos/1"]);
+    },
+  },
+  {
+    name: "next/server helpers can execute stale-while-revalidate invalidations directly",
+    run: async () => {
+      const helpers = createNextServerHelpers({
+        revalidateTag: async () => {},
+        revalidatePath: async () => {},
+      });
+      const summary = await helpers.applyInvalidations([
+        { kind: "tag", value: "todos.list" },
+        { kind: "path", value: "/todos/1" },
+      ], {
+        strategy: "stale-while-revalidate",
+        readYourOwnWrites: false,
+      });
+      assert.equal(summary.strategy, "stale-while-revalidate");
+      assert.equal(summary.readYourOwnWrites, false);
     },
   },
   {
@@ -918,6 +982,8 @@ if (failed > 0) {
 } else {
   console.log(`\nAll ${tests.length} tests passed.`);
 }
+
+
 
 
 
