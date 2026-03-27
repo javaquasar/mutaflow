@@ -1,0 +1,43 @@
+:root {
+  color-scheme: light;
+  --bg: #f4efe7;
+  --panel: rgba(255, 251, 245, 0.88);
+  --panel-strong: #fffaf2;
+  --line: rgba(72, 50, 27, 0.14);
+  --ink: #20150d;
+  --muted: #6d5b4d;
+  --accent: #be5b2a;
+  --accent-soft: #ffe1cb;
+  --success: #247c56;
+  --danger: #a63b28;
+  --shadow: 0 24px 70px rgba(83, 50, 22, 0.12);
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(190, 91, 42, 0.22), transparent 28%),
+    radial-gradient(circle at top right, rgba(36, 124, 86, 0.18), transparent 24%),
+    linear-gradient(180deg, #fcf7ef 0%, #f4efe7 52%, #efe8dd 100%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}

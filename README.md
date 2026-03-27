@@ -112,6 +112,7 @@ Mutaflow trades some raw freedom for a more inspectable and reusable mutation sy
 
 - [examples/basic/README.md](examples/basic/README.md)
 - [examples/next-app/README.md](examples/next-app/README.md)
+- [examples/published-next-app/README.md](examples/published-next-app/README.md)
 
 ## Release Readiness
 
