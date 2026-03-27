@@ -1,11 +1,11 @@
 {
   "name": "@mutaflow/testkit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Testing helpers for Mutaflow optimistic flows",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/javaquasar/mutaflow.git",
+    "url": "git+https://github.com/javaquasar/mutaflow.git",
     "directory": "packages/testkit"
   },
   "homepage": "https://github.com/javaquasar/mutaflow#readme",
@@ -34,7 +34,7 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "mutaflow": "^0.1.0"
+    "mutaflow": "^0.1.1"
   },
   "devDependencies": {
     "mutaflow": "file:../mutaflow"

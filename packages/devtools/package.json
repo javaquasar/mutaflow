@@ -1,11 +1,11 @@
 {
   "name": "@mutaflow/devtools",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Devtools prototype for Mutaflow mutation timelines",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/javaquasar/mutaflow.git",
+    "url": "git+https://github.com/javaquasar/mutaflow.git",
     "directory": "packages/devtools"
   },
   "homepage": "https://github.com/javaquasar/mutaflow#readme",
@@ -34,7 +34,7 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "mutaflow": "^0.1.0",
+    "mutaflow": "^0.1.1",
     "react": ">=19.0.0"
   },
   "devDependencies": {

@@ -4,11 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## 0.1.1
 
-Packaging and release polish for the main `mutaflow` package.
+Packaging and release polish for the Mutaflow ecosystem.
 
 - Normalized npm repository metadata to the `git+https` format expected by the npm registry.
-- Updated the package README to use absolute GitHub asset URLs so visuals render correctly outside the monorepo.
-- Prepared the main package for follow-up publishes from the new owner account.
+- Updated the main package README to use absolute GitHub asset URLs so visuals render correctly outside the monorepo.
+- Aligned `@mutaflow/devtools` and `@mutaflow/testkit` to version `0.1.1`.
+- Updated companion package peer ranges to target `mutaflow@^0.1.1`.
+- Prepared the packages for follow-up publishes from the `mutaflow` account.
 
 ## 0.1.0
 
