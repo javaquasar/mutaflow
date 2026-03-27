@@ -81,6 +81,11 @@ const createPostFlow = createFlow({
 - `@mutaflow/devtools`
 - `@mutaflow/testkit`
 
+## How It Works
+
+- concept guide: [docs/CONCEPTS.md](docs/CONCEPTS.md)
+- includes step-by-step explanations and Mermaid diagrams for flow runtime, optimistic updates, Next cache integration, devtools, and testkit
+
 ## Comparison
 
 ### Mutaflow vs `next-safe-action`

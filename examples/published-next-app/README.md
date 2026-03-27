@@ -11,6 +11,21 @@ This example consumes the published npm packages instead of the local workspace 
 - optimistic insert, rollback, reconcile, and consistency metadata
 - a visual devtools panel for understanding the mutation lifecycle
 
+## Best Entry Point
+
+If you want to understand the architecture before running the app, read:
+
+- [docs/CONCEPTS.md](../../docs/CONCEPTS.md)
+
+That document explains:
+
+- what a flow is
+- how optimistic updates work
+- when rollback happens
+- how reconcile differs from invalidation
+- how `mutaflow/next/server` connects to Next cache APIs
+- how devtools and testkit observe the same runtime
+
 ## Install
 
 ```powershell
