@@ -73,11 +73,11 @@ It gives one place to describe:
 
 ### Devtools Overview
 
-![Mutaflow Devtools Overview](../../docs/assets/devtools-overview.svg)
+![Mutaflow Devtools Overview](https://raw.githubusercontent.com/javaquasar/mutaflow/main/docs/assets/devtools-overview.svg)
 
 ### Devtools Inspector
 
-![Mutaflow Devtools Inspector](../../docs/assets/devtools-inspector.svg)
+![Mutaflow Devtools Inspector](https://raw.githubusercontent.com/javaquasar/mutaflow/main/docs/assets/devtools-inspector.svg)
 
 ## Comparison
 
@@ -116,4 +116,4 @@ Mutaflow centralizes that behavior in flow definitions and gives you a more insp
 
 ## Status
 
-`v0.1.0` is positioned as the first serious early-adopter release, not a final stable API.
+`v0.1.1` continues the early-adopter release line with packaging and metadata polish.

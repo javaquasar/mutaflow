@@ -1,11 +1,11 @@
 {
   "name": "mutaflow",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Mutation orchestration for Next.js Server Actions",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/javaquasar/mutaflow.git",
+    "url": "git+https://github.com/javaquasar/mutaflow.git",
     "directory": "packages/mutaflow"
   },
   "homepage": "https://github.com/javaquasar/mutaflow#readme",

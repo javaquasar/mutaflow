@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.1
+
+Packaging and release polish for the main `mutaflow` package.
+
+- Normalized npm repository metadata to the `git+https` format expected by the npm registry.
+- Updated the package README to use absolute GitHub asset URLs so visuals render correctly outside the monorepo.
+- Prepared the main package for follow-up publishes from the new owner account.
+
 ## 0.1.0
 
 First public early-adopter release.

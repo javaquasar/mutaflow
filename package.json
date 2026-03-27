@@ -1,11 +1,11 @@
 {
   "name": "mutaflow-monorepo",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Monorepo for the Mutaflow library",
   "repository": {
     "type": "git",
-    "url": "https://github.com/javaquasar/mutaflow.git"
+    "url": "git+https://github.com/javaquasar/mutaflow.git"
   },
   "homepage": "https://github.com/javaquasar/mutaflow",
   "bugs": {
