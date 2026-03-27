@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@mutaflow/devtools": "^0.1.0",
+    "@mutaflow/devtools": "^0.1.1",
     "mutaflow": "^0.1.1",
     "next": "^15.3.0",
     "react": "^19.2.0",

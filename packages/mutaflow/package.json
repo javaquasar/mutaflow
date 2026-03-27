@@ -1,6 +1,6 @@
 {
   "name": "mutaflow",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Mutation orchestration for Next.js Server Actions",
   "license": "MIT",
   "repository": {

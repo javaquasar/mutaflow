@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.2
+
+Documentation and consumer-demo polish across the Mutaflow ecosystem.
+
+- Added the English concepts guide with Mermaid diagrams for mutation lifecycle, optimistic updates, Next cache integration, devtools, and testkit.
+- Added the published Next.js consumer demo that installs `mutaflow` and `@mutaflow/devtools` from npm.
+- Aligned package versions across `mutaflow`, `@mutaflow/devtools`, and `@mutaflow/testkit` to `0.1.2`.
+- Updated companion package peer ranges to target `mutaflow@^0.1.2`.
+- Updated npm-facing package docs to point at the new concepts guide and published consumer demo.
+
 ## 0.1.1
 
 Packaging and release polish for the Mutaflow ecosystem.

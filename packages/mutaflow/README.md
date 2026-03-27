@@ -114,6 +114,11 @@ Mutaflow centralizes that behavior in flow definitions and gives you a more insp
 - `@mutaflow/devtools`
 - `@mutaflow/testkit`
 
+## Examples
+
+- consumer demo: [examples/published-next-app/README.md](https://github.com/javaquasar/mutaflow/blob/main/examples/published-next-app/README.md)
+- concepts guide: [docs/CONCEPTS.md](https://github.com/javaquasar/mutaflow/blob/main/docs/CONCEPTS.md)
+
 ## Status
 
-`v0.1.1` continues the early-adopter release line with packaging and metadata polish.
+`v0.1.2` continues the early-adopter release line with clearer docs and a published-package consumer demo.

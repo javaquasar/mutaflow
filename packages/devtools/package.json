@@ -1,6 +1,6 @@
 {
   "name": "@mutaflow/devtools",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Devtools prototype for Mutaflow mutation timelines",
   "license": "MIT",
   "repository": {
@@ -34,7 +34,7 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "mutaflow": "^0.1.1",
+    "mutaflow": "^0.1.2",
     "react": ">=19.0.0"
   },
   "devDependencies": {
